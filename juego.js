@@ -1,29 +1,52 @@
-// 1. VARIABLES GLOBALES BÁSICAS
+//VARIABLES GLOBALES
+// ------------------------------------------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer();
 const scene = new THREE.Scene();
-let camera;
-
-// Control de camara
-let cameraControls;
-
-//prueba para ver si va
 
 // Monitor de recursos y tiempo
 const reloj = new THREE.Clock();
 const stats = new Stats();
 
-// Elementos de la escena que vamos a animar o mover
-let pista;
+// VARIABLES PARA DETECCIÓN DE CAÍDAS
+const raycaster = new THREE.Raycaster();
+const vectorAbajo = new THREE.Vector3(0, -1, 0); // Apunto hacia abajo para saber si me he caido
 
-// 2. FUNCIÓN DE INICIALIZACIÓN
+
+// Parámetros de movimiento del coche
+const velocidadMax = 25; // Velocidad del coche
+const velocidadGiro = Math.PI; // Radianes por segundo
+
+// Teclas
+const teclas = {
+    ArrowUp: false,
+    ArrowDown: false,
+    ArrowLeft: false,
+    ArrowRight: false
+};
+
+let camera;
+let cameraControls;
+let pista; // Elementos de la escena que vamos a animar o mover
+let coche;
+
+// Variables del HUD
+let tiempoJugado = 0;
+let contadorCaidas = 0;
+
+// Fin variables globales
+// ------------------------------------------------------------------------------------------------
+
+
+//INIT()
+// ------------------------------------------------------------------------------------------------
 function init() {
-    // a. Configurar el motor de render
+    // Configurar el motor de render
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(new THREE.Color(0x000000)); // Fondo negro por defecto
     renderer.shadowMap.enabled = true; // Activamos las sombras
     document.getElementById('container').appendChild(renderer.domElement);
 
-    // b. Crear y situar la cámara
+    // Crear y situar la cámara
     const aspectRatio = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000); // Aumentamos el far (último valor) para ver más lejos en el espacio
     camera.position.set(0, 5, 10);
@@ -32,23 +55,29 @@ function init() {
     cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
     cameraControls.target.set(0, 0, 0);
 
-    // c. Monitor de rendimiento (Stats)
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    // Monitor de estadísticas
+    stats.showPanel(0);
     document.getElementById('container').appendChild(stats.domElement);
 
-    // d. Redimensionado de ventana
     window.addEventListener('resize', updateAspectRatio);
 
-    // e. Llamamos a las funciones para crear los elementos
     crearLuces();
     crearFondoEspacial();
     crearPista();
+    crearCoche()
 
-    // Arrancar reloj y bucle
     reloj.start();
     render();
 }
 
+//Fin INIT()
+// ------------------------------------------------------------------------------------------------
+
+//Funciones para la funcionalidad del juego
+// ------------------------------------------------------------------------------------------------
+
+//Función para crear las luces ambientales,
+//  darle una vulta porque molaría meter un sol y algún q otro planeta random
 function crearLuces() {
     // Luz Ambiental
     const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.4); 
@@ -60,12 +89,11 @@ function crearLuces() {
     scene.add(luzDireccional);
 }
 
-// Variable global para la esfera del espacio
+//variable para guardar el fondo espacial
 let fondoEspacial;
 
 function crearFondoEspacial() {
     // Una esfera enorme
-    // Un radio de 500 muy grande
     const geometriaFondo = new THREE.SphereGeometry(500, 64, 64);
 
     // Material
@@ -128,27 +156,27 @@ function crearPista() {
     // El true conecta el último con el primero
     const curva = new THREE.CatmullRomCurve3(puntos, true);
 
-    // Un tubo que envuelve la curva  y luego lo aplaamos
+    // Un tubo que envuelve la curva  y luego lo aplastamos
     // Parámetros: curva, detalle, radio de la pista, segmentos radiales, cerrado
-    const geometriaPista = new THREE.TubeGeometry(curva, 6000, 2, 8, true);
+    const geometriaPista = new THREE.TubeGeometry(curva, 300, 6, 8, true);
 
-    // 4. Material: Vamos a darle un toque brillante
+    // Material: Vamos a darle un toque brillante
+
+    //material en un futuro quiero un arcoiris
     const materialPista = new THREE.MeshPhongMaterial({
-        color: 0x444444,        // Gris base
-        emissive: 0x330066,     // Brillo púrpura propio (estilo neón espacial)
-        shininess: 100          // Reflejos
+        color: 0x444444,      
+        emissive: 0x330066,     
+        shininess: 100       
     });
 
-    // 5. Unir geometría y material en la variable global que creamos antes
     pista = new THREE.Mesh(geometriaPista, materialPista);
     
-    // 6. EL TRUCO MAGICO: Aplastar el tubo en el eje Y (vertical) 
+    // EL TRUCO MAGICO: Aplastar el tubo en el eje Y (vertical) 
     // para que deje de ser una tubería y pase a ser una pista de carreras plana.
-    pista.scale.set(1, 0.1, 1); 
+    pista.scale.set(1, 0.01, 1); 
 
     // Opcional para ver mejor la forma: pon pista.material.wireframe = true;
 
-    // 7. Añadir a la escena
     scene.add(pista);
 }
 
@@ -158,19 +186,129 @@ function updateAspectRatio() {
     camera.updateProjectionMatrix();
 }
 
+function crearCoche() {
+    coche = new THREE.Group();
+
+    // El chasis
+    const geoChasis = new THREE.BoxGeometry(1, 0.5, 2);
+    // Cambiamos el color a algo más "ciberpunk"
+    const matChasis = new THREE.MeshPhongMaterial({ color: 0x00ffff }); 
+    const chasis = new THREE.Mesh(geoChasis, matChasis);
+    coche.add(chasis);
+
+    // La cabina
+    const geoCabina = new THREE.BoxGeometry(0.8, 0.4, 0.8);
+    const matCabina = new THREE.MeshPhongMaterial({ color: 0x222222 });
+    const cabina = new THREE.Mesh(geoCabina, matCabina);
+    cabina.position.set(0, 0.4, 0.2);
+    coche.add(cabina);
+    
+    // Luz de Neón debajo del coche
+    // Parámetros: color, intensidad, distancia, decaimiento
+    const luzNeon = new THREE.PointLight(0x00ffff, 20, 10);
+    luzNeon.position.set(0, -0.5, 0); // Debajo del chasis
+    coche.add(luzNeon);
+
+    // Faro delantero (SpotLight)
+    const faro = new THREE.SpotLight(0xffffff, 1.5, 30, Math.PI / 6, 0.5, 1);
+    faro.position.set(0, 0.5, 1); // En el morro del coche
+    // El SpotLight necesita un "objetivo" (target) al que apuntar
+    const objetivoFaro = new THREE.Object3D();
+    objetivoFaro.position.set(0, 0.5, 10); // 10 unidades hacia adelante
+    coche.add(objetivoFaro);
+    faro.target = objetivoFaro;
+    coche.add(faro);
+
+    // Posicionarlo en el inicio de la pista
+    coche.position.set(0, 0.5, 0); 
+    coche.rotation.set(0, 90, 0);
+
+    scene.add(coche);
+}
+
+// Fin funciones de creación de elementos
+// ------------------------------------------------------------------------------------------------
+
+
+//Funciones básicas del juego
+// ------------------------------------------------------------------------------------------------
+
 function update() {
     const delta = reloj.getDelta();
     stats.update();
 
-    //Actualizo la posicion d la camara
     if (cameraControls) cameraControls.update();
-    // Aquí irá la lógica de movimiento de la cámara y el coche
+
+    // Actualizar cronómetro
+    tiempoJugado += delta;
+    document.getElementById('tiempoHUD').innerText = tiempoJugado.toFixed(1);
+
+    // LÓGICA DE MOVIMIENTO 
+    if (coche) {
+
+        if (teclas.ArrowLeft) coche.rotation.y += velocidadGiro * delta; // Gira a la izquierda
+        if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta; // Gira a la derecha
+        if (teclas.ArrowUp) coche.translateZ(velocidadMax * delta);  // Hacia adelante
+        if (teclas.ArrowDown) coche.translateZ(-velocidadMax * delta); // Hacia atrás
+
+        const offset = new THREE.Vector3(0, 4, -7); //Posición cámara!!!
+        offset.applyQuaternion(coche.quaternion); // Giramos ese 'offset' para que coincida con la rotación actual del coche
+        offset.add(coche.position); // Sumamos la posición del coche para obtener las coordenadas en el mundo real
+
+        // Movemos la cámara suavemente a esa posición
+        // El '0.1' es la velocidad a la que la cámara alcanza al coche
+        //camera.position.lerp(offset, 0.1); 
+
+        //camera.lookAt(coche.position); // Obligamos a la cámara a mirar siempre al centro del coche
+
+    // SISTEMA ANTICAÍDAS (RAYCASTING)
+        // Posicionamos el origen del láser un poquito por encima del centro del coche
+        const origenRayo = coche.position.clone();
+        origenRayo.y += 1; 
+
+        // Le decimos al raycaster de dónde sale y hacia dónde apunta (hacia abajo)
+        raycaster.set(origenRayo, vectorAbajo);
+
+        // Disparamos el láser y vemos si golpea a la variable global 'pista'
+        const intersecciones = raycaster.intersectObject(pista);
+
+        // Si la lista de intersecciones está vacía (longitud 0), no hay suelo debajo
+        if (intersecciones.length === 0) {
+            // ¡Caída libre! Reseteamos la posición y rotación del coche al inicio
+            coche.position.set(0, 0.5, 0);
+            coche.rotation.set(0, 90, 0);
+            
+            // Opcional: Si tuvieras un contador de vidas o puntuación, aquí restarías uno.
+            console.log("¡Te caíste del circuito!");
+            contadorCaidas++;
+            document.getElementById('caidasHUD').innerText = contadorCaidas;
+        }
+    }
 }
+
+/**Perfecto, ahora mismo sale así. Te quiero hacer varios planteamientos para organizar un poco como quiero que siga el trabajo */
 
 function render() {
     requestAnimationFrame(render);
     update();                      
     renderer.render(scene, camera);
 }
+
+// Fin funciones básicas del juego
+// ------------------------------------------------------------------------------------------------
+
+
+// Eventos de teclado para controlar el coche
+window.addEventListener('keydown', (event) => {
+    if (teclas.hasOwnProperty(event.code)) {
+        teclas[event.code] = true;
+    }
+});
+
+window.addEventListener('keyup', (event) => {
+    if (teclas.hasOwnProperty(event.code)) {
+        teclas[event.code] = false;
+    }
+});
 
 init();
