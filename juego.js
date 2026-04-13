@@ -55,7 +55,8 @@ function init() {
 
     cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
     cameraControls.target.set(0, 0, 0);
-    // LIMPIEZA: Inicialmente lo desactivamos para que siga al coche
+    
+    // Inicialmente lo desactivamos para que siga al coche
     cameraControls.enabled = false; 
 
     // Monitor de estadísticas
@@ -77,11 +78,25 @@ function init() {
 //Funciones para la funcionalidad del juego
 // ------------------------------------------------------------------------------------------------
 function crearLuces() {
-    const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.8); 
+    const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.3); 
     scene.add(luzAmbiental);
 
-    const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.8);
-    luzDireccional.position.set(50, 100, 50);
+    const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
+    luzDireccional.position.set(20, 50, -20);
+
+    luzDireccional.castShadow = true;
+    
+    // Configurar la calidad de la sombra (opcional pero recomendado)
+    luzDireccional.shadow.mapSize.width = 1024;
+    luzDireccional.shadow.mapSize.height = 1024;
+    // Definir el área que abarca la luz direccional (el "frustum")
+    luzDireccional.shadow.camera.near = 0.5;
+    luzDireccional.shadow.camera.far = 100;
+    luzDireccional.shadow.camera.left = -50;
+    luzDireccional.shadow.camera.right = 50;
+    luzDireccional.shadow.camera.top = 50;
+    luzDireccional.shadow.camera.bottom = -50;
+
     scene.add(luzDireccional);
 }
 
@@ -107,7 +122,7 @@ function crearEstrellas() {
     const coloresEstrellas = new Float32Array(cantidadEstrellas * 3);
 
     for(let i = 0; i < cantidadEstrellas * 3; i+=3) {
-        const r = 300 + Math.random() * 200;
+        const r = 100 + Math.random() * 200;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
         
@@ -163,8 +178,7 @@ function crearPista() {
         new THREE.Vector3(-20, 0, -10)      
     ];
 
-    // Curva que une todos los puntos
-    // El true conecta el último con el primero
+    // Curva que une todos los puntos, el true conecta el último con el primero
     const curva = new THREE.CatmullRomCurve3(puntos, true);
     
     // Un tubo que envuelve la curva  y luego lo aplastamos
@@ -181,8 +195,10 @@ function crearPista() {
     });
 
     pista = new THREE.Mesh(geometriaPista, materialPista);
+    pista.receiveShadow = true;
+    pista.castShadow = false;
 
-    // EL TRUCO MAGICO: Aplastar el tubo en el eje Y (vertical) 
+    // Aplastar el tubo en el eje Y (vertical) 
     // para que deje de ser una tubería y pase a ser una pista de carreras plana.
     pista.scale.set(1, 0.01, 1); 
     scene.add(pista);
@@ -201,6 +217,7 @@ function crearCoche() {
     const geoChasis = new THREE.BoxGeometry(1, 0.5, 2);
     const matChasis = new THREE.MeshPhongMaterial({ color: 0x00ffff }); 
     const chasis = new THREE.Mesh(geoChasis, matChasis);
+    chasis.castShadow = true; // El chasis proyecta sombra
     coche.add(chasis);
 
     // La cabina
@@ -208,18 +225,49 @@ function crearCoche() {
     const matCabina = new THREE.MeshPhongMaterial({ color: 0x222222 });
     const cabina = new THREE.Mesh(geoCabina, matCabina);
     cabina.position.set(0, 0.4, 0.2);
+    cabina.castShadow = true;
     coche.add(cabina);
 
-    // LLANTAS: Añadimos un pequeño detalle blanco a la rueda negra
+    // LAS 4 LUCES DE LAS ESQUINAS SUPERIORES
+    const posicionesLucesAlante = [
+        [0.45, 0.1, 1],   // Delantera Izquierda
+        [-0.45, 0.1, 1],  // Delantera Derecha
+    ];
+
+    const posicionesLucesDetras = [
+        [0.45, 0.1, -1],  // Trasera Izquierda
+        [-0.45, 0.1, -1]  // Trasera Derecha
+    ];
+    // Para que se vean como unos "pilotitos" luminosos, les ponemos una esferita pequeña
+    const geoPiloto = new THREE.SphereGeometry(0.08, 8, 8);
+    const matPilotoAlant = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Color neón que no le afectan las sombras
+    const matPilotoDetra = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Color neón que no le afectan las sombras
+
+    posicionesLucesAlante.forEach(pos => {
+        // El objeto visual
+        const piloto = new THREE.Mesh(geoPiloto, matPilotoAlant);
+        piloto.position.set(pos[0], pos[1], pos[2]);
+        coche.add(piloto);
+
+        // La luz real que emite
+        const luzEsquina = new THREE.PointLight(0x00ffff, 1, 10); // Intensidad 0.6, Distancia 5
+        luzEsquina.position.set(pos[0], pos[1], pos[2]);
+        coche.add(luzEsquina);
+    });
+
+    posicionesLucesDetras.forEach(pos => {
+        // El objeto visual
+        const piloto = new THREE.Mesh(geoPiloto, matPilotoDetra);
+        piloto.position.set(pos[0], pos[1], pos[2]);
+        coche.add(piloto);
+    });
+    // LLANTAS Y RUEDAS
     const geoRueda = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
     geoRueda.rotateZ(Math.PI / 2); 
-    const matRueda = new THREE.MeshPhongMaterial({ color: 0x333333 });
-    
-    // El "tapacubos" blanco para ver el giro
+    const matRueda = new THREE.MeshPhongMaterial({ color: 0x334333 });
     const geoLlanta = new THREE.BoxGeometry(0.05, 0.4, 0.1); 
     const matLlanta = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-    // Posiciones relativas al centro del coche (X, Y, Z)
     const posicionesRuedas = [
         [0.6, -0.2, 0.8],  
         [-0.6, -0.2, 0.8], 
@@ -229,39 +277,29 @@ function crearCoche() {
 
     ruedas = []; 
     posicionesRuedas.forEach(pos => {
-        const rueda = new THREE.Group(); // Ahora la rueda es un grupo que contiene el neumático y la llanta
+        const rueda = new THREE.Group(); 
         
         const neumatico = new THREE.Mesh(geoRueda, matRueda);
+        neumatico.castShadow = true; // Las ruedas proyectan sombra
         rueda.add(neumatico);
         
         const llanta = new THREE.Mesh(geoLlanta, matLlanta);
-        // Movemos la llanta un poco hacia afuera dependiendo de qué lado esté
         llanta.position.x = pos[0] > 0 ? 0.11 : -0.11; 
         rueda.add(llanta);
+        rueda.castShadow = true;
+
 
         rueda.position.set(pos[0], pos[1], pos[2]);
         coche.add(rueda);
         ruedas.push(rueda); 
     });
 
-    //Luces
-    const luzNeon = new THREE.PointLight(0x00ffff, 0.8, 8);
-    luzNeon.position.set(0, -0.5, 0); 
-    coche.add(luzNeon);
-
-    const faro = new THREE.SpotLight(0xffeedd, 0.5, 30, Math.PI / 4, 0.3, 1);
-    faro.position.set(0, 0.5, 1); 
-    const objetivoFaro = new THREE.Object3D();
-    objetivoFaro.position.set(0, 0.5, 10); 
-    coche.add(objetivoFaro);
-    faro.target = objetivoFaro;
-    coche.add(faro);
-
     coche.position.set(0, 0.5, 0); 
     coche.rotation.set(0, 90, 0);
 
     scene.add(coche);
 }
+
 
 function crearTexturaArcoiris() {
     const canvas = document.createElement('canvas');
@@ -281,10 +319,8 @@ function crearTexturaArcoiris() {
 
         // Añadir brillo central (efecto neón)
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, 'white');
         gradient.addColorStop(0.4, color);
         gradient.addColorStop(0.6, color);
-        gradient.addColorStop(1, 'white');
         ctx.fillStyle = gradient;
         ctx.fillRect(i * anchoLinea, 0, anchoLinea, canvas.height);
     });
@@ -312,11 +348,11 @@ function update() {
         if (teclas.ArrowUp){ 
             coche.translateZ(velocidadMax * delta);  
             // Llantas
-            ruedas.forEach(r => r.rotation.x -= velocidadMax * delta * 2); 
+            ruedas.forEach(r => r.rotation.x += velocidadMax * delta * 2); 
         }
         if (teclas.ArrowDown){ 
             coche.translateZ(-velocidadMax * delta); 
-            ruedas.forEach(r => r.rotation.x += velocidadMax * delta * 2);
+            ruedas.forEach(r => r.rotation.x -= velocidadMax * delta * 2);
         }
         // Posicionamos el origen del láser un poquito por encima del centro del coche
         const origenRayo = coche.position.clone();
