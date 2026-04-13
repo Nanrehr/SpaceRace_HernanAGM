@@ -14,6 +14,9 @@ const vectorAbajo = new THREE.Vector3(0, -1, 0);  // Apunto hacia abajo para sab
 // Parámetros de movimiento del coche
 const velocidadMax = 25; // Velocidad del coche
 const velocidadGiro = Math.PI; 
+let velocidadActual = 0;
+const aceleracion = 20;  // Cuánto acelera por segundo
+const friccion = 0.98;   // Resistencia (rozamiento)
 
 // Teclas
 const teclas = {
@@ -34,6 +37,7 @@ let tiempoJugado = 0;
 let contadorCaidas = 0;
 
 let camaraLibre = false;  // Estado inicial: la cámara sigue al coche
+
 
 // Fin variables globales
 // ------------------------------------------------------------------------------------------------
@@ -61,9 +65,16 @@ function init() {
 
     // Monitor de estadísticas
     stats.showPanel(0);
+
     document.getElementById('container').appendChild(stats.domElement);
 
     window.addEventListener('resize', updateAspectRatio);
+
+    stats.dom.style.position = 'absolute';
+    stats.dom.style.bottom = '10px';
+    stats.dom.style.right = '10px';
+    stats.dom.style.top = 'auto';
+    stats.dom.style.left = 'auto';
 
     crearLuces();
     crearFondoEspacial();
@@ -92,10 +103,10 @@ function crearLuces() {
     // Definir el área que abarca la luz direccional (el "frustum")
     luzDireccional.shadow.camera.near = 0.5;
     luzDireccional.shadow.camera.far = 100;
-    luzDireccional.shadow.camera.left = -50;
-    luzDireccional.shadow.camera.right = 50;
-    luzDireccional.shadow.camera.top = 50;
-    luzDireccional.shadow.camera.bottom = -50;
+    luzDireccional.shadow.camera.left = -100;
+    luzDireccional.shadow.camera.right = 100;
+    luzDireccional.shadow.camera.top = 100;
+    luzDireccional.shadow.camera.bottom = -100;
 
     scene.add(luzDireccional);
 }
@@ -121,18 +132,26 @@ function crearEstrellas() {
     const posiciones = new Float32Array(cantidadEstrellas * 3);
     const coloresEstrellas = new Float32Array(cantidadEstrellas * 3);
 
+    const centroPista = new THREE.Vector3(15, 0, 10); // Centro aproximado de tus waypoints
+
     for(let i = 0; i < cantidadEstrellas * 3; i+=3) {
         const r = 100 + Math.random() * 200;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos((Math.random() * 2) - 1);
         
         posiciones[i] = Math.sin(phi) * Math.cos(theta) * r;
-        posiciones[i+1] = Math.sin(phi) * Math.sin(theta) * r;
+        posiciones[i+1] = Math.sin(phi) * Math.sin(theta) * r * 0.6;
         posiciones[i+2] = Math.cos(phi) * r;
-        
-        coloresEstrellas[i] = 0.8 + Math.random() * 0.5;   
-        coloresEstrellas[i+1] = 0.8 + Math.random() * 0.5; 
-        coloresEstrellas[i+2] = 1.0;                      
+
+        // COLORES MÁS VIBRANTES Y VARIADOS (Rojos, Azules, Amarillos, Verdes)
+        const colorTipo = Math.random();
+        if (colorTipo < 0.33) {
+            coloresEstrellas[i] = 1.0; coloresEstrellas[i+1] = 0.6; coloresEstrellas[i+2] = 0.6; // Rojiza
+        } else if (colorTipo < 0.66) {
+            coloresEstrellas[i] = 0.6; coloresEstrellas[i+1] = 0.8; coloresEstrellas[i+2] = 1.0; // Azulada
+        } else {
+            coloresEstrellas[i] = 1.0; coloresEstrellas[i+1] = 1.0; coloresEstrellas[i+2] = 0.7; // Amarillenta
+        }
     }
 
     geometriaEstrellas.setAttribute('position', new THREE.BufferAttribute(posiciones, 3));
@@ -158,8 +177,8 @@ function crearEstrellas() {
         map: texturaEstrella,
         vertexColors: true, 
         transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+        blending: THREE.NormalBlending,
+        depthWrite: true
     });
 
     const estrellas = new THREE.Points(geometriaEstrellas, materialEstrellas);
@@ -201,6 +220,7 @@ function crearPista() {
     // Aplastar el tubo en el eje Y (vertical) 
     // para que deje de ser una tubería y pase a ser una pista de carreras plana.
     pista.scale.set(1, 0.01, 1); 
+    
     scene.add(pista);
 }
 
@@ -228,12 +248,13 @@ function crearCoche() {
     cabina.castShadow = true;
     coche.add(cabina);
 
-    // LAS 4 LUCES DE LAS ESQUINAS SUPERIORES
+    // Luces delanteras
     const posicionesLucesAlante = [
         [0.45, 0.1, 1],   // Delantera Izquierda
         [-0.45, 0.1, 1],  // Delantera Derecha
     ];
 
+    // Luces traseras
     const posicionesLucesDetras = [
         [0.45, 0.1, -1],  // Trasera Izquierda
         [-0.45, 0.1, -1]  // Trasera Derecha
@@ -241,7 +262,6 @@ function crearCoche() {
     // Para que se vean como unos "pilotitos" luminosos, les ponemos una esferita pequeña
     const geoPiloto = new THREE.SphereGeometry(0.08, 8, 8);
     const matPilotoAlant = new THREE.MeshBasicMaterial({ color: 0xffff00 }); // Color neón que no le afectan las sombras
-    const matPilotoDetra = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Color neón que no le afectan las sombras
 
     posicionesLucesAlante.forEach(pos => {
         // El objeto visual
@@ -255,12 +275,14 @@ function crearCoche() {
         coche.add(luzEsquina);
     });
 
+    const matPilotoDetra = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Color neón que no le afectan las sombras
+
     posicionesLucesDetras.forEach(pos => {
-        // El objeto visual
         const piloto = new THREE.Mesh(geoPiloto, matPilotoDetra);
         piloto.position.set(pos[0], pos[1], pos[2]);
         coche.add(piloto);
     });
+
     // LLANTAS Y RUEDAS
     const geoRueda = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
     geoRueda.rotateZ(Math.PI / 2); 
@@ -293,6 +315,18 @@ function crearCoche() {
         coche.add(rueda);
         ruedas.push(rueda); 
     });
+
+    const geoAleron = new THREE.BoxGeometry(1.2, 0.1, 0.4);
+    const aleron = new THREE.Mesh(geoAleron, matChasis);
+    aleron.position.set(0, 0.4, -0.9); // Arriba y atrás
+    aleron.castShadow = true;
+    coche.add(aleron);
+    
+    const geoSoporte = new THREE.BoxGeometry(0.6, 0.2, 0.1);
+    const soporte = new THREE.Mesh(geoSoporte, matCabina);
+    soporte.position.set(0, 0.25, -0.8);
+    soporte.castShadow = true;
+    coche.add(soporte);
 
     coche.position.set(0, 0.5, 0); 
     coche.rotation.set(0, 90, 0);
@@ -341,6 +375,7 @@ function update() {
         document.getElementById('tiempoHUD').innerText = tiempoJugado.toFixed(1);
     }
 
+    //Antiguo movimiento del coche
     if (coche) {
         if (teclas.ArrowLeft) coche.rotation.y += velocidadGiro * delta; 
         if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta; 
@@ -354,6 +389,7 @@ function update() {
             coche.translateZ(-velocidadMax * delta); 
             ruedas.forEach(r => r.rotation.x -= velocidadMax * delta * 2);
         }
+        
         // Posicionamos el origen del láser un poquito por encima del centro del coche
         const origenRayo = coche.position.clone();
         origenRayo.y += 1; 
@@ -371,6 +407,57 @@ function update() {
             }
         }
     }
+
+    /*
+    if (coche) {
+        // 1. Aceleración y Frenado
+        if (teclas.ArrowUp) {
+            velocidadActual += aceleracion * delta;
+        } else if (teclas.ArrowDown) {
+            velocidadActual -= aceleracion * delta;
+        }
+        
+        // 2. Fricción (el coche se va frenando solo si no aceleras)
+        velocidadActual *= friccion;
+
+        // 3. Limitar la velocidad máxima (hacia adelante y marcha atrás)
+        if (velocidadActual > velocidadMax) velocidadActual = velocidadMax;
+        if (velocidadActual < -velocidadMax / 2) velocidadActual = -velocidadMax / 2; // Marcha atrás más lenta
+
+        // 4. Giro (Solo permitimos girar si el coche se está moviendo)
+        if (Math.abs(velocidadActual) > 0) {
+            // Si vamos marcha atrás, invertimos el giro para que sea realista
+            const direccionGiro = velocidadActual > 0 ? 1 : -1;
+            
+            if (teclas.ArrowLeft) coche.rotation.y += velocidadGiro * delta * direccionGiro; 
+            if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta * direccionGiro; 
+        }
+
+        // 5. Aplicar el movimiento final
+        coche.translateZ(velocidadActual * delta);  
+        
+        // 6. Animar llantas en base a la velocidad real
+        ruedas.forEach(r => r.rotation.x += velocidadActual * delta * 2);
+
+        // Posicionamos el origen del láser un poquito por encima del centro del coche
+        const origenRayo = coche.position.clone();
+        origenRayo.y += 1; 
+        raycaster.set(origenRayo, vectorAbajo);
+        const intersecciones = raycaster.intersectObject(pista);
+
+        // Si la lista de intersecciones está vacía (longitud 0), no hay suelo debajo
+        if (intersecciones.length === 0) {
+            coche.position.set(0, 0.5, 0);
+            coche.rotation.set(0, 90, 0);
+            velocidadActual = 0; // Reiniciamos la velocidad al caer para evitar que salga disparado al volver a aparecer
+
+            contadorCaidas++;
+            if(document.getElementById('caidasHUD')) {
+                document.getElementById('caidasHUD').innerText = contadorCaidas;
+            }
+        }
+
+    }*/
 
     // Lógica de cámara correcta
     if (camaraLibre) {
