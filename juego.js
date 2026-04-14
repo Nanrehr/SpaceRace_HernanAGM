@@ -85,6 +85,10 @@ let audioCtx = null;
 const fuentesLuz = [];
 const fuegosArtificiales = [];
 
+let velocidadReal = 0;        // Velocidad actual con inercia
+const aceleracion = 40;       // Qué tan rápido gana velocidad
+const frenado = 60;           // Qué tan rápido frena
+const rozamiento = 25;        // Desaceleración natural al soltar
 
 const PISTAS = {
     facil: {
@@ -368,26 +372,21 @@ function init() {
 
     // Selección de colores
     document.querySelectorAll('.colorOpcion').forEach(el => {
-        el.addEventListener('click', () => {
-            document.querySelectorAll('.colorOpcion').forEach(e => e.classList.remove('seleccionado'));
-            el.classList.add('seleccionado');
-            colorCoche = parseInt(el.dataset.color, 16);
-            // Actualizar el color del coche en tiempo real
-            if (coche) {
-                coche.traverse(hijo => {
-                    if (hijo.isMesh && hijo.material.color) {
-                        const colorHex = hijo.material.color.getHex();
-                        // Solo cambiamos las piezas que eran del color de chasis
-                        if (colorHex === 0x00ffff || colorHex === colorCoche) {
-                            // Excluimos ruedas (334333), cabina (222222), y pilotos
-                            const esCarroceria = ![0x334333, 0x222222, 0x333333, 0xffff00, 0xff0000].includes(colorHex);
+            el.addEventListener('click', () => {
+                document.querySelectorAll('.colorOpcion').forEach(e => e.classList.remove('seleccionado'));
+                el.classList.add('seleccionado');
+                colorCoche = parseInt(el.dataset.color, 16);
+                if (coche) {
+                    coche.traverse(hijo => {
+                        if (hijo.isMesh) {
+                            const hex = hijo.material.color.getHex();
+                            const esCarroceria = ![0x334333, 0x222222, 0x333333, 0xffff00, 0xff0000, 0xffffff].includes(hex);
                             if (esCarroceria) hijo.material.color.setHex(colorCoche);
                         }
-                    }
-                });
-            }
+                    });
+                }
+            });
         });
-    });
 
 
     reloj.start();
@@ -1118,35 +1117,45 @@ function update() {
 
             let moviendose = false;
             let puedeAvanzar = true;
-            
-            if (teclas.ArrowUp || teclas.ArrowDown) {
-                const direccion = teclas.ArrowUp ? 1 : -1;
-                const distanciaMov = velocidadActual * delta * direccion;
-                
-                if (direccion > 0) {
-                    const rayoValla = new THREE.Raycaster();
-                    const origen = coche.position.clone();
-                    origen.y += 0.5;
-                    const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(coche.quaternion);
-                    rayoValla.set(origen, dir);
-                    const cols = rayoValla.intersectObjects(vallas);
-                    if (cols.length > 0 && cols[0].distance < 1.5) puedeAvanzar = false;
-                }
-                
-                if (puedeAvanzar || direccion < 0) {
-                    coche.translateZ(distanciaMov);
-                    ruedas.forEach(r => r.rotation.x -= distanciaMov * 2);
-                    moviendose = true;
+
+            // Calcular velocidad objetivo con inercia
+            let velocidadObjetivo = 0;
+            if (teclas.ArrowUp)   velocidadObjetivo =  velocidadBase * (tiempoBoost > 0 ? 2 : 1);
+            if (teclas.ArrowDown) velocidadObjetivo = -velocidadBase * 0.5;
+
+            if (velocidadObjetivo !== 0) {
+                // Acelerando o frenando activamente
+                const tasa = velocidadReal * velocidadObjetivo < 0 ? frenado : aceleracion;
+                velocidadReal = THREE.MathUtils.lerp(velocidadReal, velocidadObjetivo, tasa * delta / velocidadBase);
+            } else {
+                // Rozamiento natural al soltar el gas
+                velocidadReal = THREE.MathUtils.lerp(velocidadReal, 0, rozamiento * delta / velocidadBase);
+                if (Math.abs(velocidadReal) < 0.1) velocidadReal = 0;
+            }
+
+            // Detección de choque solo si avanzamos
+            if (velocidadReal > 0) {
+                const rayoValla = new THREE.Raycaster();
+                const origenV = coche.position.clone();
+                origenV.y += 0.5;
+                const dirV = new THREE.Vector3(0, 0, 1).applyQuaternion(coche.quaternion);
+                rayoValla.set(origenV, dirV);
+                const cols = rayoValla.intersectObjects(vallas);
+                if (cols.length > 0 && cols[0].distance < 1.5) {
+                    puedeAvanzar = false;
+                    velocidadReal *= -0.3; // Rebote suave
                 }
             }
 
-            /*
-            if (moviendose) {
-                if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * delta; 
-                if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta; 
-            }*/
+            if (puedeAvanzar || velocidadReal < 0) {
+                const distanciaMov = velocidadReal * delta;
+                coche.translateZ(distanciaMov);
+                ruedas.forEach(r => r.rotation.x -= distanciaMov * 2);
+                if (Math.abs(velocidadReal) > 0.5) moviendose = true;
+            }
+
            // Girar siempre que se pulse, pero más lento si no se mueve
-            const factorGiro = moviendose ? 1.0 : 0.5;
+            const factorGiro = Math.min(1, Math.abs(velocidadReal) / velocidadBase);
             if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * factorGiro * delta;
             if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * factorGiro * delta;
 
