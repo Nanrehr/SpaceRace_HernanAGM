@@ -132,6 +132,30 @@ function init() {
         reloj.start(); 
     });
 
+    document.getElementById('btnVolver').addEventListener('click', () => {
+        document.getElementById('pantallaFin').style.display = 'none';
+        document.getElementById('menuInicio').style.display = 'flex';
+        // Reset de variables
+        contadorVueltas = 0;
+        contadorCaidas = 0;
+        tiempoJugado = 0;
+        indiceSiguienteCheckpoint = 0;
+        coche.position.copy(puntoReaparicion);
+        coche.rotation.set(0, rotacionReaparicion, 0);
+        checkpoints.forEach((cp, i) => {
+            cp.tocado = false;
+            cp.material.color.setHex(coloresOriginalesCP[i]);
+            cp.material.emissive.setHex(0x000000);
+        });
+        if (meta) {
+            meta.tocada = false;
+            meta.material.color.setHex(0xffffff);
+        }
+        if(document.getElementById('vueltasHUD')) document.getElementById('vueltasHUD').innerText = 0;
+        if(document.getElementById('caidasHUD')) document.getElementById('caidasHUD').innerText = 0;
+        if(document.getElementById('tiempoHUD')) document.getElementById('tiempoHUD').innerText = '0.0';
+    });
+    
     reloj.start();
     render();
 }
@@ -652,10 +676,12 @@ function update() {
                     rotacionReaparicion = coche.rotation.y;
 
                     if (contadorVueltas >= TOTAL_VUELTAS) {
-                        setTimeout(() => alert(`¡CARRERA TERMINADA! Tiempo: ${tiempoJugado.toFixed(1)}s`), 100);
-                        contadorVueltas = 0;
-                        vueltaActual = 1;
-                        tiempoJugado = 0;
+                        juegoIniciado = false;
+                        document.getElementById('finTiempo').innerText = tiempoJugado.toFixed(1);
+                        document.getElementById('finCaidas').innerText = contadorCaidas;
+                        document.getElementById('finVueltas').innerText = TOTAL_VUELTAS;
+                        document.getElementById('hud').style.display = 'none';
+                        document.getElementById('pantallaFin').style.display = 'flex';
                     }
                 }
                 if (coche.position.distanceTo(meta.position) >= 6) meta.tocada = false;
