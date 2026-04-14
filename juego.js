@@ -62,9 +62,10 @@ let rendererMinimap;
 
 let modoJuego = 'carrera';
 let pistaActual = 'normal';
-let tiempoContrareloj = 120;
-let tiempoRestante = 120;
+let tiempoContrareloj = 119;
+let tiempoRestante = 119;
 let modoElegido = 'carrera';
+let colorCoche = 0x00ffff; // Color por defecto
 
 // --- MODO FANTASMA ---
 let cocheFantasma = null;
@@ -183,7 +184,7 @@ function init() {
 
     const aspectRatio = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000); 
-    camera.position.set(40, 80, 50);    
+    camera.position.set(6, 3, 5);    
     camera.lookAt(new THREE.Vector3(0, 0, 0));
     camera.layers.enable(1);
 
@@ -340,6 +341,54 @@ function init() {
             document.getElementById('hudContrareloj').style.display = 'none';
         });
     }
+
+    // Botón personalizar
+    document.getElementById('btnPersonalizar').addEventListener('click', () => {
+        document.getElementById('pantallaMenu').style.display = 'none';
+        document.getElementById('pantallaPersonalizar').style.display = 'flex';
+        // Enfocar cámara al coche lateralmente
+        camera.position.set(3, 2, 4);
+        camera.lookAt(coche.position);
+    });
+
+    document.getElementById('btnVolverPersonalizar').addEventListener('click', () => {
+        document.getElementById('pantallaPersonalizar').style.display = 'none';
+        document.getElementById('pantallaMenu').style.display = 'flex';
+        // Restaurar cámara inicial
+        camera.position.set(6, 3, 5);    
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+    });
+
+    document.getElementById('btnJugarDesdePersonalizar').addEventListener('click', () => {
+        document.getElementById('pantallaPersonalizar').style.display = 'none';
+        document.getElementById('pantallaModos').style.display = 'flex';
+        camera.position.set(6, 3, 5);    
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+    });
+
+    // Selección de colores
+    document.querySelectorAll('.colorOpcion').forEach(el => {
+        el.addEventListener('click', () => {
+            document.querySelectorAll('.colorOpcion').forEach(e => e.classList.remove('seleccionado'));
+            el.classList.add('seleccionado');
+            colorCoche = parseInt(el.dataset.color, 16);
+            // Actualizar el color del coche en tiempo real
+            if (coche) {
+                coche.traverse(hijo => {
+                    if (hijo.isMesh && hijo.material.color) {
+                        const colorHex = hijo.material.color.getHex();
+                        // Solo cambiamos las piezas que eran del color de chasis
+                        if (colorHex === 0x00ffff || colorHex === colorCoche) {
+                            // Excluimos ruedas (334333), cabina (222222), y pilotos
+                            const esCarroceria = ![0x334333, 0x222222, 0x333333, 0xffff00, 0xff0000].includes(colorHex);
+                            if (esCarroceria) hijo.material.color.setHex(colorCoche);
+                        }
+                    }
+                });
+            }
+        });
+    });
+
 
     reloj.start();
     render();
@@ -575,7 +624,7 @@ function updateAspectRatio() {
 function crearCoche() {
     coche = new THREE.Group();
 
-    const matChasis = new THREE.MeshPhongMaterial({ color: 0x00ffff }); 
+    const matChasis = new THREE.MeshPhongMaterial({ color: colorCoche });
     const matCabina = new THREE.MeshPhongMaterial({ color: 0x222222 });
 
     const chasis = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), matChasis);
@@ -1091,10 +1140,15 @@ function update() {
                 }
             }
 
+            /*
             if (moviendose) {
                 if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * delta; 
                 if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta; 
-            }
+            }*/
+           // Girar siempre que se pulse, pero más lento si no se mueve
+            const factorGiro = moviendose ? 1.0 : 0.5;
+            if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * factorGiro * delta;
+            if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * factorGiro * delta;
 
             // Checkpoints
             if (indiceSiguienteCheckpoint < 3) {
