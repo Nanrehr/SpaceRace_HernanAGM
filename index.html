@@ -45,6 +45,30 @@
             .tarjetaModo h3 { margin: 8px 0; }
             .pistaActiva { border-color: #00ffff !important; box-shadow: 0 0 15px rgba(0,255,255,0.4); }
 
+            /* Estilos para las teclas de los controles */
+            .tecla {
+                display: inline-block;
+                min-width: 25px;
+                padding: 8px 12px;
+                margin: 0 5px;
+                border: 2px solid #ff00ff;
+                border-radius: 8px;
+                background-color: rgba(255, 0, 255, 0.1);
+                color: #ff00ff;
+                font-weight: bold;
+                font-family: monospace;
+                text-shadow: 0 0 8px #ff00ff;
+                box-shadow: 0 0 10px rgba(255, 0, 255, 0.4) inset;
+                vertical-align: middle;
+            }
+            .controles-container {
+                margin-top: 30px;
+                margin-bottom: 40px;
+                text-align: center;
+                font-size: 1.1rem;
+                color: #ccc;
+                line-height: 2;
+            }
 
         </style>
     <canvas id="minimap-canvas" style="
@@ -90,14 +114,30 @@
             <button id="btnVolver" style="margin-top:20px; padding:15px 40px; font-size:1.8rem; background:transparent; color:#ff00ff; border:3px solid #ff00ff; cursor:pointer; text-transform:uppercase; font-weight:bold; box-shadow:0 0 15px #ff00ff inset;">Volver al Menú</button>
         </div>
 
+        <div id="hudControlesJuego" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 10; background-color: rgba(0,0,0,0.55); padding: 14px 18px; border: 2px solid #ff00ff; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 0.88rem; color: #ccc; line-height: 2.3; pointer-events:none;">
+            <div style="color:#ff00ff; font-weight:bold; margin-bottom:4px; font-size:0.8rem; letter-spacing:2px;">CONTROLES</div>
+            <div>Acelerar: &nbsp;<span class="tecla">(Mantener) ↑</span></div>
+            <div>Girar: &nbsp;&nbsp;&nbsp;<span class="tecla">←</span> <span class="tecla">→</span></div>
+            <div>Marcha Atrás: &nbsp;&nbsp;<span class="tecla">↓</span></div>
+            <div>Modo libre con touchpad: &nbsp;&nbsp;<span class="tecla">V</span></div>
+        </div>
+
         <div id="menuInicio" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,10,0.85); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:20; color:white; font-family:'Courier New', Courier, monospace;">
 
             <!-- PANTALLA 1: MENÚ PRINCIPAL -->
             <div id="pantallaMenu" style="display:flex; flex-direction:column; align-items:center;">
-                <h1 style="font-size:6rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; text-align:center;">NEON RACER</h1>
+                <h1 style="font-size:6rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; text-align:center;">SPACE RACE</h1>
                 <button class="btnMenu" id="btnModos" style="color:#00ffff; border-color:#aa00ff; box-shadow:0 0 60px #00ff73 inset;">▶ JUGAR</button>
                 <h1 style="font-size:1rem; color:#ff00ff; margin-top: 70px;">Proyecto de Hernán López Pérez</h1>
             </div>
+
+            <div id="hudControles" style="display:none; position: absolute; top: 20px; right: 20px; z-index: 10; background-color: rgba(0, 0, 0, 0.5); padding: 15px; border: 2px solid #ff00ff; border-radius: 8px; text-align: right; color: #ccc; font-size: 0.9rem; line-height: 2.2;">
+            <div style="margin-bottom: 5px;">Acelerar <span class="tecla" style="padding: 2px 8px; min-width: 15px; font-size: 1rem;">↑</span></div>
+            <div style="margin-bottom: 5px;">Frenar <span class="tecla" style="padding: 2px 8px; min-width: 15px; font-size: 1rem;">↓</span></div>
+            <div style="margin-bottom: 5px;">Girar <span class="tecla" style="padding: 2px 8px; min-width: 15px; font-size: 1rem;">←</span> <span class="tecla" style="padding: 2px 8px; min-width: 15px; font-size: 1rem;">→</span></div>
+            <div>Cámara Libre <span class="tecla" style="padding: 2px 8px; min-width: 15px; font-size: 1rem;">V</span></div>
+            </div>
+
 
             <!-- PANTALLA 2: SELECCIÓN DE MODO -->
             <div id="pantallaModos" style="display:none; flex-direction:column; align-items:center;">
