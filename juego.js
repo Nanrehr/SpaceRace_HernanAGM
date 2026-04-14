@@ -63,85 +63,116 @@ const matFuego = new THREE.MeshPhongMaterial({ color: 0xff6600, transparent: tru
 // --- MINIMAPA ---
 let cameraTop;                  
 let minimapCameraHeight = 120;
-let minimapCameraSize = 20;        // Tamaño del área visible (ajústalo según el tamaño de tu pista)
+let minimapCameraSize = 20;        // Tamaño del área visible
 let rendererMinimap;
 // ---------------
 
 let modoJuego = 'carrera';       // 'carrera' | 'contrareloj' | 'fantasma'
 let pistaActual = 'normal';      // 'facil' | 'normal' | 'dificil'
-let tiempoContrareloj = 2;     // segundos disponibles en modo contrareloj
+let tiempoContrareloj = 120;     // segundos disponibles en modo contrareloj
 let tiempoRestante = 120;
 let modoElegido = 'carrera';
+
+// --- MODO FANTASMA ---
+let cocheFantasma = null;
+let grabandoFantasma = false;
+let reproduciendo = false;
+let grabacionActual = [];      // Frames de la vuelta que estás haciendo ahora
+let mejorGrabacion = [];       // Frames de tu mejor vuelta
+let frameFantasma = 0;         // Frame actual del fantasma reproduciéndose
+let mejorTiempoFantasma = Infinity;
+let tiempoVueltaActual = 0;    // Cronómetro de la vuelta actual
+let tiempoFrameFantasma = 0;   // Tiempo acumulado del frame fantasma
+
+// --- AUDIO ---
+let audioCtx = null;
+let musicaFondo = null;
+
+// --- FX VISUALES ---
+const fuentesLuz = [];
+const fuegosArtificiales = [];
 
 const PISTAS = {
     facil: {
         nombre: 'FÁCIL',
         waypoints: [
             new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(20, 0, -10),
-            new THREE.Vector3(35, 0, 0),
+            new THREE.Vector3(15, 0, -15),
+            new THREE.Vector3(30, 0, -10),
+            new THREE.Vector3(38, 0, 5),
             new THREE.Vector3(30, 0, 20),
-            new THREE.Vector3(0, 0, 30),
-            new THREE.Vector3(-20, 0, 15),
-            new THREE.Vector3(-15, 0, 0)
+            new THREE.Vector3(15, 0, 28),
+            new THREE.Vector3(0, 0, 25),
+            new THREE.Vector3(-15, 0, 15),
+            new THREE.Vector3(-20, 0, 0),
+            new THREE.Vector3(-12, 0, -12)
         ],
         aceleradores: [
-            { x: 20, z: -10 },
+            { x: 30, z: -10 },
             { x: -15, z: 15 }
         ],
         vallas: [
-            { x: 30, z: 10, ry: 0 },
-            { x: -10, z: 25, ry: Math.PI / 4 }
+            { x: 35, z: 5,   ry: Math.PI / 6 },
+            { x: -5, z: 26,  ry: Math.PI / -5 }
         ]
     },
     normal: {
         nombre: 'NORMAL',
         waypoints: [
             new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(30, 0, -20),
-            new THREE.Vector3(50, 5, -10),
-            new THREE.Vector3(40, 0, 30),
-            new THREE.Vector3(0, -5, 40),
-            new THREE.Vector3(-30, 0, 20),
-            new THREE.Vector3(-20, 0, -10)
+            new THREE.Vector3(20, 0, -25),
+            new THREE.Vector3(45, 4, -20),
+            new THREE.Vector3(55, 6, 0),
+            new THREE.Vector3(50, 4, 20),
+            new THREE.Vector3(35, 0, 35),
+            new THREE.Vector3(10, -4, 42),
+            new THREE.Vector3(-15, 0, 35),
+            new THREE.Vector3(-30, 3, 18),
+            new THREE.Vector3(-28, 0, -5),
+            new THREE.Vector3(-12, 0, -18)
         ],
         aceleradores: [
-            { x: 30, z: -20 },
-            { x: -20, z: 20 }
+            { x: 45, z: -20 },
+            { x: -15, z: 35 }
         ],
         vallas: [
-            { x: -30, z: 20, ry: Math.PI / -4 },
-            { x: 45, z: 10, ry: Math.PI / 3 }
+            { x: 53, z: 10,  ry: Math.PI / 4 },
+            { x: -28, z: 8,  ry: Math.PI / -5 },
+            { x: 20, z: 40,  ry: 0 }
         ]
     },
     dificil: {
         nombre: 'DIFÍCIL',
         waypoints: [
             new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(25, 0, -30),
-            new THREE.Vector3(55, 10, -20),
-            new THREE.Vector3(60, 0, 10),
-            new THREE.Vector3(45, -8, 40),
-            new THREE.Vector3(15, 5, 55),
-            new THREE.Vector3(-20, 0, 45),
-            new THREE.Vector3(-45, 8, 20),
-            new THREE.Vector3(-35, 0, -15),
-            new THREE.Vector3(-10, -5, -25)
+            new THREE.Vector3(15, 2, -25),
+            new THREE.Vector3(40, 6, -35),
+            new THREE.Vector3(62, 10, -20),
+            new THREE.Vector3(68, 8, 5),
+            new THREE.Vector3(60, 4, 28),
+            new THREE.Vector3(40, 0, 42),
+            new THREE.Vector3(18, -5, 50),
+            new THREE.Vector3(-5, -8, 45),
+            new THREE.Vector3(-25, -4, 32),
+            new THREE.Vector3(-40, 2, 15),
+            new THREE.Vector3(-42, 5, -8),
+            new THREE.Vector3(-30, 2, -25),
+            new THREE.Vector3(-12, 0, -30)
         ],
         aceleradores: [
-            { x: 25, z: -30 },
-            { x: 45, z: 40 },
-            { x: -35, z: 15 }
+            { x: 40, z: -35 },
+            { x: 60, z: 28 },
+            { x: -25, z: 32 }
         ],
         vallas: [
-            { x: 55, z: -5,  ry: Math.PI / 5 },
-            { x: 15, z: 50,  ry: Math.PI / -3 },
-            { x: -40, z: 30, ry: Math.PI / 4 },
-            { x: -10, z: -20, ry: Math.PI / 6 }
+            { x: 65, z: -8,  ry: Math.PI / 5 },
+            { x: 18, z: 48,  ry: Math.PI / -4 },
+            { x: -40, z: 5,  ry: Math.PI / 3 },
+            { x: -15, z: -28, ry: Math.PI / 6 },
+            { x: 42, z: 20,  ry: Math.PI / -6 }
         ]
     }
 };
-
 // Fin variables globales
 // ------------------------------------------------------------------------------------------------
 
@@ -155,13 +186,14 @@ function init() {
     // Crear y situar la cámara
     const aspectRatio = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000); 
-    camera.position.set(0, 5, 10);
+    camera.position.set(60, 15, 5);    
     camera.lookAt(new THREE.Vector3(0, 0, 0));
+    camera.layers.enable(1); // La cámara principal ve la capa 0 (por defecto) y la 1
 
     cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
     cameraControls.enabled = false; 
 
-    // --- CÁMARA DEL MINIMAPA (OrthographicCamera) ---
+    // Cámara del minimapa
     //PROBAR A VER QUE PREFIERE LA GENTE
     //const minimapCameraSize = 80;
     cameraTop = new THREE.OrthographicCamera(
@@ -173,6 +205,7 @@ function init() {
     cameraTop.lookAt(0, 0, 0);
     cameraTop.up.set(0, 0, -1);
     cameraTop.updateProjectionMatrix();
+    cameraTop.layers.set(0); // El minimapa SOLO ve la capa 0
 
     // Segundo renderer para el minimapa circular
     rendererMinimap = new THREE.WebGLRenderer({ 
@@ -237,6 +270,7 @@ function init() {
     document.getElementById('pistaDificil').querySelector('button').addEventListener('click', () => seleccionarPistaYArrancar('dificil'));
 
     function arrancarJuego(modo) {
+        iniciarAudio();
         modoJuego = modo;
         tiempoRestante = tiempoContrareloj;
 
@@ -250,9 +284,26 @@ function init() {
         vallas.length = 0;
         if (meta) { scene.remove(meta); meta = null; }
 
+        // Limpiar bordes (todos los objetos que no sean pista/checkpoints/vallas/aceleradores/meta/coche/luces/estrellas)
+        const objetosAEliminar = [];
+        scene.traverse(obj => {
+            if (obj.isMesh && obj !== pista && obj !== coche &&
+                !checkpoints.includes(obj) && !aceleradores.includes(obj) &&
+                !vallas.includes(obj) && obj !== meta) {
+                // Solo los bordecitos (BoxGeometry pequeños)
+                if (obj.geometry && obj.geometry.parameters && 
+                    obj.geometry.parameters.width === 0.4) {
+                    objetosAEliminar.push(obj);
+                }
+            }
+        });
+        objetosAEliminar.forEach(o => scene.remove(o));
+
+
         // Reconstruir pista e interactuables
         crearPista();
         crearInteractuables();
+        document.getElementById('hudFantasmaPanel').style.display = 'none';
 
         // Reposicionar coche en el punto 0 de la nueva pista
         const puntoInicio = curvaPista.getPointAt(0);
@@ -274,6 +325,24 @@ function init() {
         if (document.getElementById('vueltasHUD')) document.getElementById('vueltasHUD').innerText = 0;
         if (document.getElementById('caidasHUD')) document.getElementById('caidasHUD').innerText = 0;
         if (document.getElementById('tiempoHUD')) document.getElementById('tiempoHUD').innerText = '0.0';
+
+        // Reset fantasma
+        grabacionActual = [];
+        mejorGrabacion = [];
+        frameFantasma = 0;
+        tiempoVueltaActual = 0;
+        mejorTiempoFantasma = Infinity;
+        reproduciendo = false;
+
+        if (modo === 'fantasma') {
+            crearCocheFantasma();
+            grabandoFantasma = true;
+        } else {
+            if (cocheFantasma) { scene.remove(cocheFantasma); cocheFantasma = null; }
+            grabandoFantasma = false;
+            reproduciendo = false;
+        }
+
 
         document.getElementById('menuInicio').style.display = 'none';
         document.getElementById('hud').style.display = 'block';
@@ -308,7 +377,7 @@ function crearMeta() {
     const matMeta = new THREE.MeshPhongMaterial({ map: texMeta });
     meta = new THREE.Mesh(geoMeta, matMeta);
 
-    meta.position.set(punto.x, 1, punto.z);
+    meta.position.set(punto.x, -1.5, punto.z);
 
     const tangente2D = new THREE.Vector3(tangente.x, 0, tangente.z).normalize();
     meta.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangente2D);
@@ -354,11 +423,41 @@ function crearLuces() {
 }
 
 function crearFondoEspacial() {
+
     // Una esfera enorme
     const geometriaFondo = new THREE.SphereGeometry(500, 64, 64);
     const materialFondo = new THREE.MeshBasicMaterial({ color: 0x050510, side: THREE.BackSide }); // Para ver el interior de la esfera
     const fondoEspacial = new THREE.Mesh(geometriaFondo, materialFondo);
     scene.add(fondoEspacial);
+    
+    // Asegúrate de poner la ruta correcta donde hayas guardado tu .glb
+    const rutaModelo = './models/sol.glb'; 
+
+    const loader = new THREE.GLTFLoader();
+
+    loader.load(rutaModelo, function (gltf) {
+        const sol = gltf.scene;
+        
+        // Lo posicionamos donde tienes tu luz direccional para que tenga sentido visual
+        sol.position.set(20, 50, -20);
+        
+        // Ajusta estos valores según lo grande que sea el modelo que te has descargado:
+        sol.scale.set(10, 10, 10); 
+        
+        // Hacemos que brille para que parezca un sol (material emisivo)
+        sol.traverse((hijo) => {
+            if (hijo.isMesh) {
+                hijo.material.emissive = new THREE.Color(0xffaa00);
+                hijo.material.emissiveIntensity = 1; // Ajusta este valor si brilla mucho o poco
+                hijo.layers.set(1); // <-- AÑADIR ESTO
+            }
+        });
+        
+        scene.add(sol);
+    }, undefined, function (error) {
+        console.error(error); // [cite: 58]
+    });
+
     crearEstrellas();
 }
 
@@ -417,22 +516,68 @@ function crearEstrellas() {
     const estrellas = new THREE.Points(geometriaEstrellas, materialEstrellas);
     scene.add(estrellas);
 }
-/*
+
 function crearPista() {
-    // Definir los "waypoints" o puntos clave del circuito.
-    const puntos = PISTAS[pistaActual] || PISTAS.normal;
+    const waypointsDatos = PISTAS[pistaActual].waypoints;
+    curvaPista = new THREE.CatmullRomCurve3(waypointsDatos, true);
 
-    // Curva que une todos los puntos, el true conecta el último con el primero
-    curvaPista = new THREE.CatmullRomCurve3(puntos, true);
+    const numSegmentos = 300;
+    const anchoPista = 12;
+    const posiciones = [];
+    const uvs = [];
+    const indices = [];
 
-    // Un tubo que envuelve la curva  y luego lo aplastamos
-    // Parámetros: curva, detalle, radio de la pista, segmentos radiales, cerrado
-    const geometriaPista = new THREE.TubeGeometry(curvaPista, 300, 6, 8, true);
+    for (let i = 0; i <= numSegmentos; i++) {
+        const t = i / numSegmentos;
+        const punto = curvaPista.getPointAt(t);
+        const tangente = curvaPista.getTangentAt(t);
 
+        // Vector "arriba" del mundo
+        const arriba = new THREE.Vector3(0, 1, 0);
+        // Perpendicular a la tangente en el plano local
+        const perp = new THREE.Vector3()
+            .crossVectors(tangente, arriba)
+            .normalize();
+
+        // Vértice izquierdo y derecho
+        posiciones.push(
+            punto.x + perp.x * anchoPista / 2,
+            punto.y,
+            punto.z + perp.z * anchoPista / 2
+        );
+        posiciones.push(
+            punto.x - perp.x * anchoPista / 2,
+            punto.y,
+            punto.z - perp.z * anchoPista / 2
+        );
+
+        // UVs para la textura
+        uvs.push(0, t * 30);
+        uvs.push(1, t * 30);
+    }
+
+    // Triángulos conectando segmentos
+    for (let i = 0; i < numSegmentos; i++) {
+        const a = i * 2;
+        const b = i * 2 + 1;
+        const c = i * 2 + 2;
+        const d = i * 2 + 3;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+    }
+
+    const geometriaPista = new THREE.BufferGeometry();
+    geometriaPista.setAttribute('position',
+        new THREE.Float32BufferAttribute(posiciones, 3));
+    geometriaPista.setAttribute('uv',
+        new THREE.Float32BufferAttribute(uvs, 2));
+    geometriaPista.setIndex(indices);
+    geometriaPista.computeVertexNormals();
 
     const texturaPista = crearTexturaArcoiris();
     texturaPista.wrapS = THREE.RepeatWrapping;
-    texturaPista.repeat.set(30, 1); 
+    texturaPista.wrapT = THREE.RepeatWrapping;
+    texturaPista.repeat.set(1, 1);
 
     const materialPista = new THREE.MeshLambertMaterial({
         map: texturaPista,
@@ -440,104 +585,36 @@ function crearPista() {
     });
 
     pista = new THREE.Mesh(geometriaPista, materialPista);
+    // Ya NO necesitas scale.set(1, 0.01, 1)
     pista.receiveShadow = true;
-    pista.castShadow = false;
-
-    // Aplastar el tubo en el eje Y (vertical) 
-    // para que deje de ser una tubería y pase a ser una pista de carreras plana.
-    pista.scale.set(1, 0.01, 1); 
-    
-    scene.add(pista);
-}*/
-function crearPista() {
-    const puntos = PISTAS[pistaActual].waypoints;
-    curvaPista = new THREE.CatmullRomCurve3(puntos, true);
-
-    const geometriaPista = new THREE.TubeGeometry(curvaPista, 300, 6, 8, true);
-    const texturaPista = crearTexturaArcoiris();
-    texturaPista.wrapS = THREE.RepeatWrapping;
-    texturaPista.repeat.set(30, 1);
-
-    const materialPista = new THREE.MeshLambertMaterial({ map: texturaPista, side: THREE.DoubleSide });
-    pista = new THREE.Mesh(geometriaPista, materialPista);
-    pista.receiveShadow = true;
-    pista.castShadow = false;
-    pista.scale.set(1, 0.01, 1);
     scene.add(pista);
 }
 
-/*
-function crearInteractuables() {
-    // --- CHECKPOINTS en 25%, 50%, 75% de la curva ---
-    const porcentajes = [0.25, 0.5, 0.75];
-
-    porcentajes.forEach((t, i) => {
-        const punto    = curvaPista.getPointAt(t);
-        const tangente = curvaPista.getTangentAt(t);
-
-        const geoCP = new THREE.TorusGeometry(7, 0.5, 16, 100);
-        const matCP = new THREE.MeshPhongMaterial({
-            color: coloresOriginalesCP[i],
-            emissive: coloresOriginalesCP[i],
-            emissiveIntensity: 0.3
-        });
-        const checkpoint = new THREE.Mesh(geoCP, matCP);
-
-        // Posición exacta sobre la pista
-        checkpoint.position.set(punto.x, 1, punto.z);
-
-        // Orientar el aro para que el coche pase por el hueco
-        // El torus por defecto tiene el hueco en Z → lo rotamos a la tangente
-        const tangente2D = new THREE.Vector3(tangente.x, 0, tangente.z).normalize();
-        checkpoint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangente2D);
-
-        checkpoint.tocado = false;
-        scene.add(checkpoint);
-        checkpoints.push(checkpoint);
-    });
-
-    // --- META en t=0 ---
-    crearMeta();
-
-    // --- ACELERADOR (sin cambios) ---
-    const geoAcc = new THREE.PlaneGeometry(6, 6);
-    const matAcc = new THREE.MeshBasicMaterial({ map: crearTexturaFlechas(), side: THREE.DoubleSide });
-    const acelerador = new THREE.Mesh(geoAcc, matAcc);
-    acelerador.position.set(30, 0.2, -20);
-    acelerador.rotation.x = Math.PI / 2;
-    acelerador.rotation.z = -90;
-    scene.add(acelerador);
-    aceleradores.push(acelerador);
-
-    // --- VALLA (sin cambios) ---
-    const geoValla = new THREE.BoxGeometry(6, 2, 1);
-    const matValla = new THREE.MeshPhongMaterial({ color: 0x888888 });
-    const valla = new THREE.Mesh(geoValla, matValla);
-    valla.position.set(-30, 1, 20);
-    valla.rotation.y = Math.PI / -4;
-    scene.add(valla);
-    vallas.push(valla);
-}
-*/
 function crearInteractuables() {
     const datos = PISTAS[pistaActual];
 
     // --- CHECKPOINTS en 25%, 50%, 75% ---
+
     const porcentajes = [0.25, 0.5, 0.75];
     porcentajes.forEach((t, i) => {
         const punto    = curvaPista.getPointAt(t);
-        const tangente = curvaPista.getTangentAt(t);
+        const tangente = curvaPista.getTangentAt(t); // tangente COMPLETA con Y
 
-        const geoCP = new THREE.TorusGeometry(7, 0.5, 16, 100);
+        const geoCP = new THREE.TorusGeometry(8, 0.5, 16, 100);
+        const texCP = crearTexturaCheckpoint();
         const matCP = new THREE.MeshPhongMaterial({
+            map: texCP,
             color: coloresOriginalesCP[i],
             emissive: coloresOriginalesCP[i],
-            emissiveIntensity: 0.3
+            emissiveIntensity: 0.4
         });
         const checkpoint = new THREE.Mesh(geoCP, matCP);
-        checkpoint.position.set(punto.x, 1, punto.z);
-        const tangente2D = new THREE.Vector3(tangente.x, 0, tangente.z).normalize();
-        checkpoint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangente2D);
+        checkpoint.position.copy(punto);
+
+        // Orientar con la tangente COMPLETA (incluye inclinación Y)
+        const tangenteNorm = tangente.clone().normalize();
+        checkpoint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangenteNorm);
+
         checkpoint.tocado = false;
         scene.add(checkpoint);
         checkpoints.push(checkpoint);
@@ -546,27 +623,47 @@ function crearInteractuables() {
     // --- META ---
     crearMeta();
 
+    
     // --- ACELERADORES de esta pista ---
     datos.aceleradores.forEach(a => {
-        const geoAcc = new THREE.PlaneGeometry(6, 6);
+        const infoPista = obtenerDatosPistaCercana(a.x, a.z);
+        
+        const geoAcc = new THREE.PlaneGeometry(12, 6);
         const matAcc = new THREE.MeshBasicMaterial({ map: crearTexturaFlechas(), side: THREE.DoubleSide });
         const acelerador = new THREE.Mesh(geoAcc, matAcc);
-        acelerador.position.set(a.x, 0.2, a.z);
-        acelerador.rotation.x = Math.PI / 2;
+        
+        // Ponerlo a ras de la pista (infoPista.punto.y + 0.1 para que no se superponga visualmente)
+        acelerador.position.set(infoPista.punto.x, infoPista.punto.y + 0.1, infoPista.punto.z);
+        
+        // Orientarlo siguiendo la pista y tumbarlo en el suelo
+        acelerador.lookAt(infoPista.punto.x + infoPista.tangente.x, infoPista.punto.y + infoPista.tangente.y, infoPista.punto.z + infoPista.tangente.z);
+        acelerador.rotateX(-Math.PI / 2); // Lo tumbamos
+        
         scene.add(acelerador);
         aceleradores.push(acelerador);
     });
+    
 
     // --- VALLAS de esta pista ---
+    const texLadrillo = crearTexturaLadrillosNeon();
     datos.vallas.forEach(v => {
+        const infoPista = obtenerDatosPistaCercana(v.x, v.z);
+        
         const geoValla = new THREE.BoxGeometry(6, 2, 1);
-        const matValla = new THREE.MeshPhongMaterial({ color: 0x888888 });
+        const matValla = new THREE.MeshPhongMaterial({ map: texLadrillo });
         const valla = new THREE.Mesh(geoValla, matValla);
-        valla.position.set(v.x, 1, v.z);
-        valla.rotation.y = v.ry;
+        
+        // Posición ajustada a la altura de la colina correspondiente
+        valla.position.set(v.x, infoPista.punto.y + 1, v.z); 
+        
+        // Orientación automática siguiendo la curva de la pista
+        valla.lookAt(v.x + infoPista.tangente.x, infoPista.punto.y + 1, v.z + infoPista.tangente.z);
+        
         scene.add(valla);
         vallas.push(valla);
     });
+
+   //crearBordesPista();
 }
 
 function updateAspectRatio() {
@@ -681,6 +778,37 @@ function crearCoche() {
     scene.add(coche);
 }
 
+function crearCocheFantasma() {
+    if (cocheFantasma) { scene.remove(cocheFantasma); cocheFantasma = null; }
+
+    cocheFantasma = new THREE.Group();
+
+    const matFantasma = new THREE.MeshPhongMaterial({ 
+        color: 0xff00ff, 
+        transparent: true, 
+        opacity: 0.35,
+        emissive: 0xff00ff,
+        emissiveIntensity: 0.3
+    });
+
+    // Chasis
+    const chasis = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), matFantasma);
+    cocheFantasma.add(chasis);
+
+    // Cabina
+    const cabina = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), matFantasma);
+    cabina.position.set(0, 0.4, 0.2);
+    cocheFantasma.add(cabina);
+
+    // Alerón
+    const aleron = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.4), matFantasma);
+    aleron.position.set(0, 0.4, -0.9);
+    cocheFantasma.add(aleron);
+
+    cocheFantasma.visible = false;
+    scene.add(cocheFantasma);
+}
+
 function crearTexturaArcoiris() {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -769,6 +897,315 @@ function updateMinimapCamera() {
     cameraTop.lookAt(coche.position.x, 0, coche.position.z);
 }
 
+function crearBordesPista() {
+    const numPuntos = 150;
+    const separacion = 6.5; // Distancia del centro al borde (radio del tubo)
+
+    for (let i = 0; i < numPuntos; i++) {
+        const t = i / numPuntos;
+        const punto    = curvaPista.getPointAt(t);
+        const tangente = curvaPista.getTangentAt(t);
+
+        // Vector perpendicular en el plano XZ
+        const perp = new THREE.Vector3(-tangente.z, 0, tangente.x).normalize();
+
+        const geoBorde = new THREE.BoxGeometry(0.4, 1.2, 0.4);
+        const matBorde = new THREE.MeshPhongMaterial({ 
+            color: i % 2 === 0 ? 0x00ffff : 0xff00ff,
+            emissive: i % 2 === 0 ? 0x004444 : 0x440044
+        });
+
+        // Borde izquierdo
+        const bordeIzq = new THREE.Mesh(geoBorde, matBorde);
+        bordeIzq.position.set(
+            punto.x + perp.x * separacion,
+            punto.y + 0.6,
+            punto.z + perp.z * separacion
+        );
+        scene.add(bordeIzq);
+
+        // Borde derecho
+        const bordeDer = new THREE.Mesh(geoBorde, matBorde.clone());
+        bordeDer.position.set(
+            punto.x - perp.x * separacion,
+            punto.y + 0.6,
+            punto.z - perp.z * separacion
+        );
+        scene.add(bordeDer);
+
+        bordeIzq.position.set(
+            punto.x + perp.x * separacion,
+            punto.y + 0.6,   // ahora esto ES correcto
+            punto.z + perp.z * separacion
+        );
+        bordeDer.position.set(
+            punto.x - perp.x * separacion,
+            punto.y + 0.6,
+            punto.z - perp.z * separacion
+);
+
+    }
+}
+function crearTexturaCheckpoint() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000011';
+    ctx.fillRect(0, 0, 256, 64);
+    // Franjas diagonales neón
+    for (let x = -64; x < 280; x += 32) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0); ctx.lineTo(x + 20, 0);
+        ctx.lineTo(x + 20 + 64, 64); ctx.lineTo(x + 64, 64);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fill();
+    }
+    // Borde brillante
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffffff';
+    ctx.strokeRect(2, 2, 252, 60);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.repeat.set(6, 1);
+    return tex;
+}
+
+
+function iniciarAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    reproducirMusicaFondo();
+}
+
+function reproducirMusicaFondo() {
+    if (!audioCtx) return;
+
+    function crearCapa(frecuencias, duracion, volumen, delay) {
+        setTimeout(() => {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frecuencias[0], audioCtx.currentTime);
+            gain.gain.setValueAtTime(volumen, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracion);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duracion);
+        }, delay);
+    }
+
+    // Bucle de música tipo synthwave
+    const notas = [130, 146, 164, 174, 195, 220, 246, 261];
+    function bucleMusica() {
+        if (!juegoIniciado) { setTimeout(bucleMusica, 500); return; }
+        notas.forEach((nota, i) => {
+            crearCapa([nota], 0.4, 0.04, i * 250);
+            crearCapa([nota * 2], 0.2, 0.02, i * 250 + 125);
+        });
+        setTimeout(bucleMusica, notas.length * 250);
+    }
+    bucleMusica();
+}
+
+function sonidoCheckpoint() {
+    if (!audioCtx) return;
+    [880, 1100, 1320].forEach((freq, i) => {
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }, i * 80);
+    });
+}
+
+function sonidoMeta() {
+    if (!audioCtx) return;
+    [523, 659, 784, 1046].forEach((freq, i) => {
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }, i * 100);
+    });
+}
+
+function sonidoFinal() {
+    if (!audioCtx) return;
+    const melodia = [523, 659, 784, 659, 784, 1046, 784, 1046, 1318];
+    melodia.forEach((freq, i) => {
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        }, i * 120);
+    });
+}
+
+function sonidoBoost() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function flashCheckpoint(posicion) {
+    const luz = new THREE.PointLight(0x00ff00, 8, 20);
+    luz.position.copy(posicion);
+    luz.position.y += 2;
+    scene.add(luz);
+    fuentesLuz.push({ luz, vida: 0.5 });
+}
+
+function lanzarFuegosArtificiales() {
+    // Lanzamos 15 cohetes repartidos
+    for (let f = 0; f < 15; f++) {
+        setTimeout(() => {
+            // Cogemos un punto aleatorio de la pista (de 0 a 1)
+            const puntoAleatorio = curvaPista.getPointAt(Math.random());
+            
+            const origen = puntoAleatorio.clone();
+            origen.x += (Math.random() - 0.5) * 40; // Mayor dispersión X
+            origen.z += (Math.random() - 0.5) * 40; // Mayor dispersión Z
+            origen.y += Math.random() * 10;         // Nacen un poco elevados
+            
+            const color = [0xff0000, 0x00ffff, 0xffff00, 0xff00ff, 0x00ff00][Math.floor(Math.random() * 5)];
+            const matFA = new THREE.MeshBasicMaterial({ color });
+
+            for (let i = 0; i < 30; i++) {
+                const geo = new THREE.SphereGeometry(0.15, 4, 4);
+                const p = new THREE.Mesh(geo, matFA);
+                p.position.copy(origen);
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 15,
+                    5 + Math.random() * 15,
+                    (Math.random() - 0.5) * 15
+                );
+                scene.add(p);
+                fuegosArtificiales.push({ mesh: p, vel, vida: 1.5 + Math.random() });
+            }
+
+            const luzFA = new THREE.PointLight(color, 10, 25);
+            luzFA.position.copy(origen);
+            luzFA.position.y = 8;
+            scene.add(luzFA);
+            fuentesLuz.push({ luz: luzFA, vida: 0.4 });
+
+        }, f * 300); // 300ms entre cada cohete
+    }
+}
+
+function mostrarAvisoVuelta(texto, color = '#00ffff') {
+    const el = document.getElementById('avisoVuelta');
+    if (!el) return;
+    el.innerText = texto;
+    el.style.color = color;
+    el.style.textShadow = `0 0 20px ${color}`;
+    el.style.display = 'block';
+    el.style.opacity = '1';
+    let fade = 2.0;
+    const intervalo = setInterval(() => {
+        fade -= 0.05;
+        el.style.opacity = Math.max(0, fade).toString();
+        if (fade <= 0) { el.style.display = 'none'; clearInterval(intervalo); }
+    }, 50);
+}
+
+function obtenerDatosPistaCercana(x, z) {
+    let mejorT = 0;
+    let minDist = Infinity;
+    // Escaneamos la pista para ver qué punto cae más cerca de x,z
+    for(let i = 0; i <= 100; i++) {
+        let t = i / 100;
+        let pt = curvaPista.getPointAt(t);
+        let dist = Math.hypot(pt.x - x, pt.z - z);
+        if(dist < minDist) { minDist = dist; mejorT = t; }
+    }
+    return {
+        punto: curvaPista.getPointAt(mejorT),
+        tangente: curvaPista.getTangentAt(mejorT)
+    };
+}
+
+function crearTexturaLadrillosNeon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    
+    // Fondo oscuro
+    ctx.fillStyle = '#0a0a1a';
+    ctx.fillRect(0, 0, 256, 256);
+    
+    // Líneas de los ladrillos
+    ctx.strokeStyle = '#ff00ff'; // Rosa neón
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ff00ff';
+    
+    // Dibujar patrón de pared
+    for(let i = 0; i < 256; i += 64) {
+        ctx.strokeRect(i, 0, 64, 128);
+        ctx.strokeRect(i - 32, 128, 64, 128);
+    }
+    
+    const textura = new THREE.CanvasTexture(canvas);
+    textura.wrapS = THREE.RepeatWrapping;
+    textura.wrapT = THREE.RepeatWrapping;
+    textura.repeat.set(2, 1);
+    return textura;
+}
+
+function sonidoCaidaResbalon() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'triangle'; // Suena tipo consola retro
+    // Empieza agudo y cae en picado hacia grave (efecto caída)
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.8);
+    
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.8);
+}
 // Fin funciones de creación de elementos
 // ------------------------------------------------------------------------------------------------
 
@@ -779,10 +1216,85 @@ function update() {
     if (!juegoIniciado) return;
 
     const delta = reloj.getDelta();
+
+    // --- LÓGICA MODO FANTASMA ---
+    //----------------------------------------------------------------------------------
+    if (modoJuego === 'fantasma') {
+        tiempoVueltaActual += delta;
+
+       if (grabandoFantasma) {
+            // Guardar solo 1 de cada 3 frames (~20 fps)
+            if (grabacionActual.length % 3 === 0) {
+                grabacionActual.push({
+                    x: coche.position.x,
+                    y: coche.position.y,
+                    z: coche.position.z,
+                    rotY: coche.rotation.y
+                });
+            }
+        }
+
+        // Reproducir fantasma
+        if (reproduciendo && mejorGrabacion.length > 0 && cocheFantasma) {
+            // Interpolación simple para suavizar el movimiento
+            cocheFantasma.visible = true;
+            const frame = mejorGrabacion[frameFantasma];
+            const nextFrame = mejorGrabacion[(frameFantasma + 1) % mejorGrabacion.length];
+            const factor = 0.5; // Interpolación lineal al 50%
+            
+            cocheFantasma.position.x = frame.x * (1 - factor) + nextFrame.x * factor;
+            cocheFantasma.position.z = frame.z * (1 - factor) + nextFrame.z * factor;
+            cocheFantasma.position.y = frame.y;
+
+            // Calcular si el fantasma va por delante o por detrás
+            // El fantasma va "ganando" si su frame índice es mayor que el nuestro
+            const ratioFantasma = frameFantasma / mejorGrabacion.length;
+            const ratioNuestro  = grabacionActual.length / mejorGrabacion.length;
+            const delta_t = (ratioNuestro - ratioFantasma) * mejorTiempoFantasma;
+
+            // HUD delta
+            const elDelta = document.getElementById('deltaTiempoHUD');
+            if (elDelta) {
+                if (delta_t > 0.05) {
+                    elDelta.innerText = `+${delta_t.toFixed(2)}s`;
+                    elDelta.style.color = '#00ff00'; // verde = vamos ganando
+                    elDelta.style.textShadow = '0 0 10px #00ff00';
+                    // Fantasma normal
+                    cocheFantasma.traverse(m => { if (m.isMesh) { m.material.opacity = 0.35; m.material.emissiveIntensity = 0.3; }});
+                } else if (delta_t < -0.05) {
+                    elDelta.innerText = `${delta_t.toFixed(2)}s`;
+                    elDelta.style.color = '#ff4444'; // rojo = fantasma gana
+                    elDelta.style.textShadow = '0 0 10px #ff4444';
+                    // Fantasma pulsa más intenso para intimidar
+                    const pulso = 0.5 + 0.4 * Math.sin(Date.now() * 0.008);
+                    cocheFantasma.traverse(m => { if (m.isMesh) { m.material.opacity = pulso; m.material.emissiveIntensity = pulso * 1.5; }});
+                } else {
+                    elDelta.innerText = `±0.00s`;
+                    elDelta.style.color = '#ffff00';
+                    elDelta.style.textShadow = '0 0 10px #ffff00';
+                }
+            }
+
+            frameFantasma++;
+            if (frameFantasma >= mejorGrabacion.length) frameFantasma = 0;
+        }
+
+        // Mostrar mejor tiempo
+        const hudF = document.getElementById('hudFantasmaPanel');
+        if (hudF) hudF.style.display = 'block';
+        if (mejorTiempoFantasma < Infinity)
+            document.getElementById('mejorTiempoHUD').innerText = mejorTiempoFantasma.toFixed(2);
+    } else {
+        const hudF = document.getElementById('hudFantasmaPanel');
+        if (hudF) hudF.style.display = 'none';
+    }
+
     stats.update();
 
     tiempoJugado += delta;
-    // Modo contrarreloj
+
+    // Lógica modo contrarreloj
+    //----------------------------------------------------------------------------------
     if (modoJuego === 'contrareloj') {
         tiempoRestante -= delta;
         const mins = Math.floor(tiempoRestante / 60);
@@ -864,17 +1376,44 @@ function update() {
             // --- LÓGICA DE VUELTAS SECUENCIAL ---
             if (indiceSiguienteCheckpoint < 3) {
                 const cpObjetivo = checkpoints[indiceSiguienteCheckpoint];
-                if (coche.position.distanceTo(cpObjetivo.position) < 5) {
+
+               if (coche.position.distanceTo(cpObjetivo.position) < 5) {
                     cpObjetivo.material.color.setHex(0x00ff00);
                     cpObjetivo.material.emissive.setHex(0x005500);
                     puntoReaparicion.copy(coche.position);
                     rotacionReaparicion = coche.rotation.y;
                     indiceSiguienteCheckpoint++;
+                    sonidoCheckpoint();
+                    flashCheckpoint(cpObjetivo.position);
                 }
             } else if (indiceSiguienteCheckpoint === 3 && meta) {
                 if (coche.position.distanceTo(meta.position) < 6 && !meta.tocada) {
                     meta.tocada = true;
+
+                    // Lógica fantasma al cruzar meta
+                    if (modoJuego === 'fantasma') {
+                        // ¿Es mejor vuelta?
+                        if (tiempoVueltaActual < mejorTiempoFantasma) {
+                            mejorTiempoFantasma = tiempoVueltaActual;
+                            mejorGrabacion = [...grabacionActual];
+                        }
+                        // Reiniciar grabación para la siguiente vuelta
+                        grabacionActual = [];
+                        tiempoVueltaActual = 0;
+                        frameFantasma = 0;
+                        reproduciendo = true;
+                        grabandoFantasma = true;
+                    }
+
                     contadorVueltas++;
+                    sonidoMeta();
+                    lanzarFuegosArtificiales(); // ← AQUÍ, en cada vuelta
+
+                    const restantes = TOTAL_VUELTAS - contadorVueltas;
+                    if (restantes > 0) {
+                        mostrarAvisoVuelta(`¡${restantes} VUELTA${restantes > 1 ? 'S' : ''} RESTANTE${restantes > 1 ? 'S' : ''}!`, '#00ffff');
+                    }
+
                     if (document.getElementById('vueltasHUD'))
                         document.getElementById('vueltasHUD').innerText = contadorVueltas;
 
@@ -894,12 +1433,15 @@ function update() {
                     rotacionReaparicion = coche.rotation.y;
 
                     if (contadorVueltas >= TOTAL_VUELTAS) {
+                        //lanzarFuegosArtificiales();
                         juegoIniciado = false;
                         document.getElementById('finTiempo').innerText = tiempoJugado.toFixed(1);
                         document.getElementById('finCaidas').innerText = contadorCaidas;
                         document.getElementById('finVueltas').innerText = TOTAL_VUELTAS;
                         document.getElementById('hud').style.display = 'none';
                         document.getElementById('pantallaFin').style.display = 'flex';
+                        sonidoFinal();
+
                     }
                 }
                 if (coche.position.distanceTo(meta.position) >= 6) meta.tocada = false;
@@ -908,6 +1450,7 @@ function update() {
             // Aceleradores
             aceleradores.forEach(acc => {
                 if (coche.position.distanceTo(acc.position) < 4) {
+                    if (tiempoBoost <= 0) sonidoBoost();
                     tiempoBoost = 1.5; // 1.5 segundos de turbo
                 }
             });
@@ -928,9 +1471,42 @@ function update() {
 */
             // Sistema de caída
             const origenRayo = coche.position.clone();
-            origenRayo.y += 1; 
+            // 1. AUMENTAMOS LA ALTURA DEL RAYO: Lo lanzamos desde más arriba (+10) 
+            // para asegurar que siempre detecte la pista, incluso en subidas muy empinadas.
+            origenRayo.y += 10; 
             raycaster.set(origenRayo, vectorAbajo);
             const intersecciones = raycaster.intersectObject(pista);
+
+            if (intersecciones.length === 0) {
+                // Iniciar caida
+                if (timerCaida) clearTimeout(timerCaida);
+
+                estadoCaida = true;
+                sonidoCaidaResbalon();
+                contadorCaidas++;
+                if(document.getElementById('caidasHUD')) document.getElementById('caidasHUD').innerText = contadorCaidas;
+                
+                // CAÍDA MÁS CORTA: Solo 0.5 segundos
+                timerCaida = setTimeout(() => {
+                    coche.position.copy(puntoReaparicion);
+                    coche.rotation.set(0, rotacionReaparicion, 0);  
+                    estadoCaida = false;            
+                    
+                    // La camara mira al coche reaperecer
+                    if (!camaraLibre) {
+                        const offset = new THREE.Vector3(0, 4, -7); 
+                        offset.applyQuaternion(coche.quaternion); 
+                        offset.add(coche.position); 
+                        camera.position.copy(offset);
+                        camera.lookAt(coche.position);
+                    }
+                }, 1000); 
+            } else {
+                // 2. ¡EL COCHE ESTÁ SOBRE LA PISTA!
+                // Ajustamos la altura del coche al punto exacto donde el rayo toca la pista.
+                // Sumamos 0.5 porque es la distancia desde el centro del coche (su punto de anclaje) hasta las ruedas.
+                coche.position.y = intersecciones[0].point.y + 0.5; 
+            }
 
             if (intersecciones.length === 0) {
                 //iniciar caida
@@ -1026,6 +1602,37 @@ function update() {
             camera.lookAt(coche.position);
         }
     }
+    // Animar checkpoints y meta para que giren
+    const t = Date.now() * 0.001;
+    checkpoints.forEach((cp, i) => {
+        cp.rotation.z = t * (0.8 + i * 0.2);
+    });
+    if (meta) meta.rotation.z = t * 1.2;
+
+    // Actualizar flashes de luz
+    for (let i = fuentesLuz.length - 1; i >= 0; i--) {
+        fuentesLuz[i].vida -= delta;
+        fuentesLuz[i].luz.intensity *= 0.85;
+        if (fuentesLuz[i].vida <= 0) {
+            scene.remove(fuentesLuz[i].luz);
+            fuentesLuz.splice(i, 1);
+        }
+    }
+
+    // Actualizar fuegos artificiales
+    for (let i = fuegosArtificiales.length - 1; i >= 0; i--) {
+        const fa = fuegosArtificiales[i];
+        fa.vel.y -= 9.8 * delta;
+        fa.mesh.position.addScaledVector(fa.vel, delta);
+        fa.vida -= delta;
+        fa.mesh.material.opacity = fa.vida;
+        fa.mesh.material.transparent = true;
+        if (fa.vida <= 0) {
+            scene.remove(fa.mesh);
+            fuegosArtificiales.splice(i, 1);
+        }
+    }
+
     updateMinimapCamera();
 }
 

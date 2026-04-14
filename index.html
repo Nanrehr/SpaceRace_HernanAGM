@@ -67,10 +67,19 @@
                 ⏱️ TIEMPO: <span id="tiempoHUD">0.0</span>s<br>
                 💥 CAÍDAS: <span id="caidasHUD">0</span>
         </div>
+
+        <div id="hudFantasmaPanel" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); font-family:monospace; font-size:1.8rem; z-index:10; text-align:center;">
+            <div id="deltaTime" style="padding:8px 25px; border-radius:8px; border:2px solid #ff00ff; background:rgba(0,0,0,0.6); color:#ff00ff; text-shadow:0 0 10px #ff00ff;">
+                👻 MEJOR: <span id="mejorTiempoHUD">--</span>s &nbsp;|&nbsp; <span id="deltaTiempoHUD" style="font-size:2rem;">--</span>
+            </div>
+        </div>
+
         <div id="hudContrareloj" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); color:#ff4444; font-family:monospace; font-size:2.5rem; z-index:10; text-shadow:0 0 10px #ff4444;">
             ⏱ <span id="timerContrareloj">2:00</span>
         </div>
+        <div id="avisoVuelta" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#00ffff; font-family:'Courier New',monospace; font-size:3rem; font-weight:bold; text-shadow:0 0 20px #00ffff; z-index:25; pointer-events:none; text-align:center;"></div>
 
+        
         <div id="pantallaFin" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,10,0.92); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:30; color:white; font-family:'Courier New', Courier, monospace;">
             <h1 style="font-size:3.5rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; margin-bottom:10px;">¡CARRERA TERMINADA!</h1>
             <div style="font-size:1.4rem; background:rgba(0,0,0,0.5); border:2px solid cyan; border-radius:10px; padding:30px 50px; margin:20px; text-align:center; line-height:2.5;">
@@ -85,9 +94,9 @@
 
             <!-- PANTALLA 1: MENÚ PRINCIPAL -->
             <div id="pantallaMenu" style="display:flex; flex-direction:column; align-items:center;">
-                <h1 style="font-size:4rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; text-align:center;">NEON RACER</h1>
-                <p style="font-size:1.2rem; text-align:center; margin-bottom:30px;">Controles: Flechas | Cámara libre: V</p>
-                <button class="btnMenu" id="btnModos" style="color:#00ffff; border-color:#00ffff; box-shadow:0 0 15px #00ffff inset;">▶ JUGAR</button>
+                <h1 style="font-size:6rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; text-align:center;">NEON RACER</h1>
+                <button class="btnMenu" id="btnModos" style="color:#00ffff; border-color:#aa00ff; box-shadow:0 0 60px #00ff73 inset;">▶ JUGAR</button>
+                <h1 style="font-size:1rem; color:#ff00ff; margin-top: 70px;">Proyecto de Hernán López Pérez</h1>
             </div>
 
             <!-- PANTALLA 2: SELECCIÓN DE MODO -->
@@ -165,6 +174,7 @@
 		<script src="./lib/OrbitControls.js"></script>
 		<script src="./lib/stats.min.js"></script>
         <script src="./lib/dat.gui.min.js"></script>
+        <script src="./lib/GLTFLoader.js"></script>
 
         <script src="./juego.js"></script>
 
