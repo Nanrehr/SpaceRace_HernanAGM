@@ -15,25 +15,40 @@
                 width: 30%;
                 text-align: left;
                 z-index: 1;
-            }    
+            }
+
+
         </style>
-    </head>
+    <canvas id="minimap-canvas" style="
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        border: 4px solid cyan;
+        box-shadow: 0 0 25px rgba(0,255,255,0.9);
+        pointer-events: none;
+        z-index: 15;">
+    </canvas>
+
+</head>
     <body>
-        <div id="hud" style="
-        position: absolute; 
-        top: 20px; 
-        left: 20px; 
-        color: white; 
-        font-family: 'Courier New', Courier, monospace; 
-        font-size: 24px; 
-        z-index: 10;
-        background-color: rgba(0, 0, 0, 0.5);
-        padding: 10px;
-        border: 2px solid cyan;
-        border-radius: 5px;">
-        Tiempo: <span id="tiempoHUD">0.0</span>s<br>
-        Caídas: <span id="caidasHUD">0</span>
+        <div id="hud" style="display:none; position: absolute; top: 20px; left: 20px; color: white; font-family: monospace; font-size: 24px; z-index: 10; background-color: rgba(0, 0, 0, 0.5); padding: 10px; border: 2px solid cyan; border-radius: 5px;">
+                🏆 VUELTA: <span id="vueltasHUD">0</span>/3<br>
+                ⏱️ TIEMPO: <span id="tiempoHUD">0.0</span>s<br>
+                💥 CAÍDAS: <span id="caidasHUD">0</span>
         </div>
+
+        <div id="menuInicio" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,10,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white; font-family: 'Courier New', Courier, monospace;">
+            <h1 style="font-size: 4rem; color: #00ffff; text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;">NEON RACER</h1>
+            <p style="font-size: 1.5rem;">Controles: Flechas de dirección | Cámara Libre: Tecla V</p>
+            <button id="btnJugar" style="margin-top: 30px; padding: 15px 40px; font-size: 2rem; background: transparent; color: #ff00ff; border: 3px solid #ff00ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; box-shadow: 0 0 15px #ff00ff inset;">Jugar</button>
+        </div>
+        <div id="minimap-border">
+            <div id="minimap"></div>
+        </div>
+            
         <div id="container"></div>
 
 		<!-- Scripts de biblioteca -->
