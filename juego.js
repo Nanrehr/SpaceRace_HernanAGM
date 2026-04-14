@@ -1259,6 +1259,9 @@ function update() {
                         coche.position.copy(puntoReaparicion);
                         coche.rotation.set(0, rotacionReaparicion, 0);  
                         estadoCaida = false;            
+
+                        velocidadReal = 0; // <--- ¡AÑADE ESTO! Frena el coche a cero al reaparecer
+                        
                         if (!camaraLibre) {
                             const offset = new THREE.Vector3(0, 4, -7); 
                             offset.applyQuaternion(coche.quaternion); 
