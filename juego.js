@@ -61,15 +61,15 @@ const matHumo = new THREE.MeshPhongMaterial({ color: 0xcccccc, transparent: true
 const matFuego = new THREE.MeshPhongMaterial({ color: 0xff6600, transparent: true, opacity: 0.9, emissive: 0xff4400 });
 
 // --- MINIMAPA ---
-let cameraTop;                     // Cámara ortográfica para el minimapa
-let minimapCameraHeight = 120;      // Altura a la que sobrevuela la pista
-let minimapCameraSize = 25;        // Tamaño del área visible (ajústalo según el tamaño de tu pista)
+let cameraTop;                  
+let minimapCameraHeight = 120;
+let minimapCameraSize = 20;        // Tamaño del área visible (ajústalo según el tamaño de tu pista)
 let rendererMinimap;
 // ---------------
 
 let modoJuego = 'carrera';       // 'carrera' | 'contrareloj' | 'fantasma'
 let pistaActual = 'normal';      // 'facil' | 'normal' | 'dificil'
-let tiempoContrareloj = 120;     // segundos disponibles en modo contrareloj
+let tiempoContrareloj = 2;     // segundos disponibles en modo contrareloj
 let tiempoRestante = 120;
 let modoElegido = 'carrera';
 
@@ -162,7 +162,8 @@ function init() {
     cameraControls.enabled = false; 
 
     // --- CÁMARA DEL MINIMAPA (OrthographicCamera) ---
-    const minimapCameraSize = 80;
+    //PROBAR A VER QUE PREFIERE LA GENTE
+    //const minimapCameraSize = 80;
     cameraTop = new THREE.OrthographicCamera(
         -minimapCameraSize, minimapCameraSize,
         minimapCameraSize, -minimapCameraSize,
