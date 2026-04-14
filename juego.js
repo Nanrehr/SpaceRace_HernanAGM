@@ -67,6 +67,81 @@ let minimapCameraSize = 25;        // Tamaño del área visible (ajústalo segú
 let rendererMinimap;
 // ---------------
 
+let modoJuego = 'carrera';       // 'carrera' | 'contrareloj' | 'fantasma'
+let pistaActual = 'normal';      // 'facil' | 'normal' | 'dificil'
+let tiempoContrareloj = 120;     // segundos disponibles en modo contrareloj
+let tiempoRestante = 120;
+let modoElegido = 'carrera';
+
+const PISTAS = {
+    facil: {
+        nombre: 'FÁCIL',
+        waypoints: [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(20, 0, -10),
+            new THREE.Vector3(35, 0, 0),
+            new THREE.Vector3(30, 0, 20),
+            new THREE.Vector3(0, 0, 30),
+            new THREE.Vector3(-20, 0, 15),
+            new THREE.Vector3(-15, 0, 0)
+        ],
+        aceleradores: [
+            { x: 20, z: -10 },
+            { x: -15, z: 15 }
+        ],
+        vallas: [
+            { x: 30, z: 10, ry: 0 },
+            { x: -10, z: 25, ry: Math.PI / 4 }
+        ]
+    },
+    normal: {
+        nombre: 'NORMAL',
+        waypoints: [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(30, 0, -20),
+            new THREE.Vector3(50, 5, -10),
+            new THREE.Vector3(40, 0, 30),
+            new THREE.Vector3(0, -5, 40),
+            new THREE.Vector3(-30, 0, 20),
+            new THREE.Vector3(-20, 0, -10)
+        ],
+        aceleradores: [
+            { x: 30, z: -20 },
+            { x: -20, z: 20 }
+        ],
+        vallas: [
+            { x: -30, z: 20, ry: Math.PI / -4 },
+            { x: 45, z: 10, ry: Math.PI / 3 }
+        ]
+    },
+    dificil: {
+        nombre: 'DIFÍCIL',
+        waypoints: [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(25, 0, -30),
+            new THREE.Vector3(55, 10, -20),
+            new THREE.Vector3(60, 0, 10),
+            new THREE.Vector3(45, -8, 40),
+            new THREE.Vector3(15, 5, 55),
+            new THREE.Vector3(-20, 0, 45),
+            new THREE.Vector3(-45, 8, 20),
+            new THREE.Vector3(-35, 0, -15),
+            new THREE.Vector3(-10, -5, -25)
+        ],
+        aceleradores: [
+            { x: 25, z: -30 },
+            { x: 45, z: 40 },
+            { x: -35, z: 15 }
+        ],
+        vallas: [
+            { x: 55, z: -5,  ry: Math.PI / 5 },
+            { x: 15, z: 50,  ry: Math.PI / -3 },
+            { x: -40, z: 30, ry: Math.PI / 4 },
+            { x: -10, z: -20, ry: Math.PI / 6 }
+        ]
+    }
+};
+
 // Fin variables globales
 // ------------------------------------------------------------------------------------------------
 
@@ -87,19 +162,17 @@ function init() {
     cameraControls.enabled = false; 
 
     // --- CÁMARA DEL MINIMAPA (OrthographicCamera) ---
+    const minimapCameraSize = 80;
     cameraTop = new THREE.OrthographicCamera(
-        -minimapCameraSize,  // left
-        minimapCameraSize,   // right
-        minimapCameraSize,   // top
-        -minimapCameraSize,  // bottom
-        1,                   // near
-        200                  // far
+        -minimapCameraSize, minimapCameraSize,
+        minimapCameraSize, -minimapCameraSize,
+        1, 200
     );
     cameraTop.position.set(0, minimapCameraHeight, 0);
     cameraTop.lookAt(0, 0, 0);
-    cameraTop.up.set(0, 0, -1); // ¡IMPORTANTE! Para que el Norte sea el eje Z positivo (típico en mapas top-down)
+    cameraTop.up.set(0, 0, -1);
     cameraTop.updateProjectionMatrix();
-    
+
     // Segundo renderer para el minimapa circular
     rendererMinimap = new THREE.WebGLRenderer({ 
         canvas: document.getElementById('minimap-canvas'),
@@ -107,7 +180,7 @@ function init() {
     });
     rendererMinimap.setSize(280, 280);
     rendererMinimap.setClearColor(0x111122, 1);
-    
+
     // Monitor de estadísticas
     stats.showPanel(0);
     document.getElementById('container').appendChild(stats.domElement);
@@ -125,37 +198,100 @@ function init() {
     crearInteractuables();
     crearCoche();
 
-    document.getElementById('btnJugar').addEventListener('click', () => {
-        document.getElementById('menuInicio').style.display = 'none'; 
-        document.getElementById('hud').style.display = 'block';       
-        juegoIniciado = true;
-        reloj.start(); 
+    // --- NAVEGACIÓN ---
+    document.getElementById('btnModos').addEventListener('click', () => {
+        document.getElementById('pantallaMenu').style.display = 'none';
+        document.getElementById('pantallaModos').style.display = 'flex';
     });
 
-    document.getElementById('btnVolver').addEventListener('click', () => {
-        document.getElementById('pantallaFin').style.display = 'none';
-        document.getElementById('menuInicio').style.display = 'flex';
-        // Reset de variables
+    document.getElementById('btnVolverMenu').addEventListener('click', () => {
+        document.getElementById('pantallaModos').style.display = 'none';
+        document.getElementById('pantallaMenu').style.display = 'flex';
+    });
+
+    document.getElementById('btnVolverPistas').addEventListener('click', () => {
+        document.getElementById('pantallaPistas').style.display = 'none';
+        document.getElementById('pantallaModos').style.display = 'flex';
+    });
+
+    function irAElegirPista(modo) {
+        modoElegido = modo;
+        const nombres = { carrera: 'CARRERA', contrareloj: 'CONTRARRELOJ', fantasma: 'MODO FANTASMA' };
+        document.getElementById('modoElegidoSpan').innerText = nombres[modo];
+        document.getElementById('pantallaModos').style.display = 'none';
+        document.getElementById('pantallaPistas').style.display = 'flex';
+    }
+
+    document.getElementById('cardNormal').querySelector('button').addEventListener('click', () => irAElegirPista('carrera'));
+    document.getElementById('cardContrareloj').querySelector('button').addEventListener('click', () => irAElegirPista('contrareloj'));
+    document.getElementById('cardFantasma').querySelector('button').addEventListener('click', () => irAElegirPista('fantasma'));
+
+    function seleccionarPistaYArrancar(nombrePista) {
+        pistaActual = nombrePista;
+        arrancarJuego(modoElegido);
+    }
+
+    document.getElementById('pistaFacil').querySelector('button').addEventListener('click', () => seleccionarPistaYArrancar('facil'));
+    document.getElementById('pistaNormal').querySelector('button').addEventListener('click', () => seleccionarPistaYArrancar('normal'));
+    document.getElementById('pistaDificil').querySelector('button').addEventListener('click', () => seleccionarPistaYArrancar('dificil'));
+
+    function arrancarJuego(modo) {
+        modoJuego = modo;
+        tiempoRestante = tiempoContrareloj;
+
+        // Limpiar escena completamente
+        if (pista) { scene.remove(pista); pista = null; }
+        checkpoints.forEach(cp => scene.remove(cp));
+        checkpoints.length = 0;
+        aceleradores.forEach(a => scene.remove(a));
+        aceleradores.length = 0;
+        vallas.forEach(v => scene.remove(v));
+        vallas.length = 0;
+        if (meta) { scene.remove(meta); meta = null; }
+
+        // Reconstruir pista e interactuables
+        crearPista();
+        crearInteractuables();
+
+        // Reposicionar coche en el punto 0 de la nueva pista
+        const puntoInicio = curvaPista.getPointAt(0);
+        const tangenteInicio = curvaPista.getTangentAt(0);
+        puntoReaparicion.set(puntoInicio.x, 0.5, puntoInicio.z);
+        rotacionReaparicion = Math.atan2(tangenteInicio.x, tangenteInicio.z);
+        coche.position.copy(puntoReaparicion);
+        coche.rotation.set(0, rotacionReaparicion, 0);
+
+        // Reset contadores
         contadorVueltas = 0;
         contadorCaidas = 0;
         tiempoJugado = 0;
         indiceSiguienteCheckpoint = 0;
-        coche.position.copy(puntoReaparicion);
-        coche.rotation.set(0, rotacionReaparicion, 0);
-        checkpoints.forEach((cp, i) => {
-            cp.tocado = false;
-            cp.material.color.setHex(coloresOriginalesCP[i]);
-            cp.material.emissive.setHex(0x000000);
-        });
-        if (meta) {
-            meta.tocada = false;
-            meta.material.color.setHex(0xffffff);
-        }
-        if(document.getElementById('vueltasHUD')) document.getElementById('vueltasHUD').innerText = 0;
-        if(document.getElementById('caidasHUD')) document.getElementById('caidasHUD').innerText = 0;
-        if(document.getElementById('tiempoHUD')) document.getElementById('tiempoHUD').innerText = '0.0';
+        estadoCaida = false;
+        if (timerCaida) { clearTimeout(timerCaida); timerCaida = null; }
+
+        // Reset HUD
+        if (document.getElementById('vueltasHUD')) document.getElementById('vueltasHUD').innerText = 0;
+        if (document.getElementById('caidasHUD')) document.getElementById('caidasHUD').innerText = 0;
+        if (document.getElementById('tiempoHUD')) document.getElementById('tiempoHUD').innerText = '0.0';
+
+        document.getElementById('menuInicio').style.display = 'none';
+        document.getElementById('hud').style.display = 'block';
+        document.getElementById('hudContrareloj').style.display = modo === 'contrareloj' ? 'block' : 'none';
+
+        juegoIniciado = true;
+        reloj.start();
+    }
+
+    document.getElementById('btnVolver').addEventListener('click', () => {
+        document.getElementById('pantallaFin').style.display = 'none';
+        document.getElementById('pantallaMenu').style.display = 'flex';
+        document.getElementById('pantallaModos').style.display = 'none';
+        document.getElementById('pantallaPistas').style.display = 'none';
+        document.getElementById('menuInicio').style.display = 'flex';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('hudContrareloj').style.display = 'none';
     });
-    
+
     reloj.start();
     render();
 }
@@ -280,18 +416,11 @@ function crearEstrellas() {
     const estrellas = new THREE.Points(geometriaEstrellas, materialEstrellas);
     scene.add(estrellas);
 }
-
+/*
 function crearPista() {
     // Definir los "waypoints" o puntos clave del circuito.
-    const puntos = [
-        new THREE.Vector3(0, 0, 0),         
-        new THREE.Vector3(30, 0, -20),      
-        new THREE.Vector3(50, 5, -10),      
-        new THREE.Vector3(40, 0, 30),       
-        new THREE.Vector3(0, -5, 40),       
-        new THREE.Vector3(-30, 0, 20),      
-        new THREE.Vector3(-20, 0, -10)      
-    ];
+    const puntos = PISTAS[pistaActual] || PISTAS.normal;
+
     // Curva que une todos los puntos, el true conecta el último con el primero
     curvaPista = new THREE.CatmullRomCurve3(puntos, true);
 
@@ -318,8 +447,25 @@ function crearPista() {
     pista.scale.set(1, 0.01, 1); 
     
     scene.add(pista);
+}*/
+function crearPista() {
+    const puntos = PISTAS[pistaActual].waypoints;
+    curvaPista = new THREE.CatmullRomCurve3(puntos, true);
+
+    const geometriaPista = new THREE.TubeGeometry(curvaPista, 300, 6, 8, true);
+    const texturaPista = crearTexturaArcoiris();
+    texturaPista.wrapS = THREE.RepeatWrapping;
+    texturaPista.repeat.set(30, 1);
+
+    const materialPista = new THREE.MeshLambertMaterial({ map: texturaPista, side: THREE.DoubleSide });
+    pista = new THREE.Mesh(geometriaPista, materialPista);
+    pista.receiveShadow = true;
+    pista.castShadow = false;
+    pista.scale.set(1, 0.01, 1);
+    scene.add(pista);
 }
 
+/*
 function crearInteractuables() {
     // --- CHECKPOINTS en 25%, 50%, 75% de la curva ---
     const porcentajes = [0.25, 0.5, 0.75];
@@ -370,6 +516,56 @@ function crearInteractuables() {
     valla.rotation.y = Math.PI / -4;
     scene.add(valla);
     vallas.push(valla);
+}
+*/
+function crearInteractuables() {
+    const datos = PISTAS[pistaActual];
+
+    // --- CHECKPOINTS en 25%, 50%, 75% ---
+    const porcentajes = [0.25, 0.5, 0.75];
+    porcentajes.forEach((t, i) => {
+        const punto    = curvaPista.getPointAt(t);
+        const tangente = curvaPista.getTangentAt(t);
+
+        const geoCP = new THREE.TorusGeometry(7, 0.5, 16, 100);
+        const matCP = new THREE.MeshPhongMaterial({
+            color: coloresOriginalesCP[i],
+            emissive: coloresOriginalesCP[i],
+            emissiveIntensity: 0.3
+        });
+        const checkpoint = new THREE.Mesh(geoCP, matCP);
+        checkpoint.position.set(punto.x, 1, punto.z);
+        const tangente2D = new THREE.Vector3(tangente.x, 0, tangente.z).normalize();
+        checkpoint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangente2D);
+        checkpoint.tocado = false;
+        scene.add(checkpoint);
+        checkpoints.push(checkpoint);
+    });
+
+    // --- META ---
+    crearMeta();
+
+    // --- ACELERADORES de esta pista ---
+    datos.aceleradores.forEach(a => {
+        const geoAcc = new THREE.PlaneGeometry(6, 6);
+        const matAcc = new THREE.MeshBasicMaterial({ map: crearTexturaFlechas(), side: THREE.DoubleSide });
+        const acelerador = new THREE.Mesh(geoAcc, matAcc);
+        acelerador.position.set(a.x, 0.2, a.z);
+        acelerador.rotation.x = Math.PI / 2;
+        scene.add(acelerador);
+        aceleradores.push(acelerador);
+    });
+
+    // --- VALLAS de esta pista ---
+    datos.vallas.forEach(v => {
+        const geoValla = new THREE.BoxGeometry(6, 2, 1);
+        const matValla = new THREE.MeshPhongMaterial({ color: 0x888888 });
+        const valla = new THREE.Mesh(geoValla, matValla);
+        valla.position.set(v.x, 1, v.z);
+        valla.rotation.y = v.ry;
+        scene.add(valla);
+        vallas.push(valla);
+    });
 }
 
 function updateAspectRatio() {
@@ -585,6 +781,27 @@ function update() {
     stats.update();
 
     tiempoJugado += delta;
+    // Modo contrarreloj
+    if (modoJuego === 'contrareloj') {
+        tiempoRestante -= delta;
+        const mins = Math.floor(tiempoRestante / 60);
+        const segs = Math.max(0, tiempoRestante % 60).toFixed(0).padStart(2, '0');
+        const el = document.getElementById('timerContrareloj');
+        if (el) {
+            el.innerText = `${mins}:${segs}`;
+            el.style.color = tiempoRestante < 20 ? '#ff0000' : '#ff4444';
+        }
+        if (tiempoRestante <= 0) {
+            juegoIniciado = false;
+            document.getElementById('finTiempo').innerText = '¡TIEMPO!';
+            document.getElementById('finCaidas').innerText = contadorCaidas;
+            document.getElementById('finVueltas').innerText = contadorVueltas;
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('hudContrareloj').style.display = 'none';
+            document.getElementById('pantallaFin').style.display = 'flex';
+        }
+    }
+    
     if(document.getElementById('tiempoHUD')) {
         document.getElementById('tiempoHUD').innerText = tiempoJugado.toFixed(1);
     }

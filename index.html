@@ -16,6 +16,34 @@
                 text-align: left;
                 z-index: 1;
             }
+            .btnMenu {
+                padding: 12px 35px;
+                font-size: 1.5rem;
+                background: transparent;
+                border: 3px solid;
+                cursor: pointer;
+                text-transform: uppercase;
+                font-weight: bold;
+                font-family: 'Courier New', Courier, monospace;
+                color: white;
+                transition: 0.2s;
+            }
+            .btnMenu:hover { filter: brightness(1.4); transform: scale(1.05); }
+            .btnPequeno { font-size: 1rem; padding: 8px 20px; margin-top: 10px; }
+            .tarjetaModo {
+                background: rgba(0,0,0,0.5);
+                border: 2px solid #444;
+                border-radius: 12px;
+                padding: 25px 30px;
+                text-align: center;
+                width: 180px;
+                transition: 0.2s;
+                cursor: default;
+            }
+            .tarjetaModo:hover { border-color: #00ffff; transform: scale(1.03); }
+            .tarjetaModo p { color: #aaa; font-size: 0.9rem; line-height: 1.6; }
+            .tarjetaModo h3 { margin: 8px 0; }
+            .pistaActiva { border-color: #00ffff !important; box-shadow: 0 0 15px rgba(0,255,255,0.4); }
 
 
         </style>
@@ -39,6 +67,10 @@
                 ⏱️ TIEMPO: <span id="tiempoHUD">0.0</span>s<br>
                 💥 CAÍDAS: <span id="caidasHUD">0</span>
         </div>
+        <div id="hudContrareloj" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); color:#ff4444; font-family:monospace; font-size:2.5rem; z-index:10; text-shadow:0 0 10px #ff4444;">
+            ⏱ <span id="timerContrareloj">2:00</span>
+        </div>
+
         <div id="pantallaFin" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,10,0.92); display:none; flex-direction:column; justify-content:center; align-items:center; z-index:30; color:white; font-family:'Courier New', Courier, monospace;">
             <h1 style="font-size:3.5rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; margin-bottom:10px;">¡CARRERA TERMINADA!</h1>
             <div style="font-size:1.4rem; background:rgba(0,0,0,0.5); border:2px solid cyan; border-radius:10px; padding:30px 50px; margin:20px; text-align:center; line-height:2.5;">
@@ -49,11 +81,78 @@
             <button id="btnVolver" style="margin-top:20px; padding:15px 40px; font-size:1.8rem; background:transparent; color:#ff00ff; border:3px solid #ff00ff; cursor:pointer; text-transform:uppercase; font-weight:bold; box-shadow:0 0 15px #ff00ff inset;">Volver al Menú</button>
         </div>
 
-        <div id="menuInicio" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,10,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white; font-family: 'Courier New', Courier, monospace;">
-            <h1 style="font-size: 4rem; color: #00ffff; text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;">NEON RACER</h1>
-            <p style="font-size: 1.5rem;">Controles: Flechas de dirección | Cámara Libre: Tecla V</p>
-            <button id="btnJugar" style="margin-top: 30px; padding: 15px 40px; font-size: 2rem; background: transparent; color: #ff00ff; border: 3px solid #ff00ff; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: 0.3s; box-shadow: 0 0 15px #ff00ff inset;">Jugar</button>
+        <div id="menuInicio" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,10,0.85); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:20; color:white; font-family:'Courier New', Courier, monospace;">
+
+            <!-- PANTALLA 1: MENÚ PRINCIPAL -->
+            <div id="pantallaMenu" style="display:flex; flex-direction:column; align-items:center;">
+                <h1 style="font-size:4rem; color:#00ffff; text-shadow:0 0 10px #00ffff, 0 0 20px #00ffff; text-align:center;">NEON RACER</h1>
+                <p style="font-size:1.2rem; text-align:center; margin-bottom:30px;">Controles: Flechas | Cámara libre: V</p>
+                <button class="btnMenu" id="btnModos" style="color:#00ffff; border-color:#00ffff; box-shadow:0 0 15px #00ffff inset;">▶ JUGAR</button>
+            </div>
+
+            <!-- PANTALLA 2: SELECCIÓN DE MODO -->
+            <div id="pantallaModos" style="display:none; flex-direction:column; align-items:center;">
+                <h2 style="font-size:2.5rem; color:#00ffff; margin-bottom:30px;">SELECCIONA MODO</h2>
+                <div style="display:flex; gap:30px; flex-wrap:wrap; justify-content:center;">
+
+                    <div class="tarjetaModo" id="cardNormal">
+                        <div style="font-size:2.5rem;">🏁</div>
+                        <h3 style="color:#00ffff;">CARRERA</h3>
+                        <p>3 vueltas, sin límite<br>de tiempo. Modo clásico.</p>
+                        <button class="btnMenu btnPequeno" style="color:#00ffff; border-color:#00ffff;">ELEGIR</button>
+                    </div>
+
+                    <div class="tarjetaModo" id="cardContrareloj">
+                        <div style="font-size:2.5rem;">⏱️</div>
+                        <h3 style="color:#ff4444;">CONTRARRELOJ</h3>
+                        <p>Completa 3 vueltas<br>antes de que acabe el tiempo.</p>
+                        <button class="btnMenu btnPequeno" style="color:#ff4444; border-color:#ff4444;">ELEGIR</button>
+                    </div>
+
+                    <div class="tarjetaModo" id="cardFantasma">
+                        <div style="font-size:2.5rem;">👻</div>
+                        <h3 style="color:#ff00ff;">MODO FANTASMA</h3>
+                        <p>Compite contra<br>tu mejor tiempo.</p>
+                        <button class="btnMenu btnPequeno" style="color:#ff00ff; border-color:#ff00ff;">ELEGIR</button>
+                    </div>
+
+                </div>
+                <button class="btnMenu" id="btnVolverMenu" style="margin-top:30px; color:#888; border-color:#888; font-size:1rem;">← VOLVER</button>
+            </div>
+
+            <!-- PANTALLA 3: SELECCIÓN DE PISTA -->
+            <div id="pantallaPistas" style="display:none; flex-direction:column; align-items:center;">
+                <h2 style="font-size:2.5rem; color:#ff00ff; margin-bottom:10px;">SELECCIONA PISTA</h2>
+                <p id="modoElegidoLabel" style="color:#aaa; margin-bottom:25px; font-size:1rem;">Modo: <span id="modoElegidoSpan" style="color:#00ffff;">CARRERA</span></p>
+                <div style="display:flex; gap:30px; flex-wrap:wrap; justify-content:center;">
+
+                    <div class="tarjetaModo" id="pistaFacil">
+                        <div style="font-size:2.5rem;">🟢</div>
+                        <h3 style="color:#00ff00;">FÁCIL</h3>
+                        <p>Curvas suaves,<br>pista ancha y tranquila.</p>
+                        <button class="btnMenu btnPequeno" style="color:#00ff00; border-color:#00ff00;">JUGAR</button>
+                    </div>
+
+                    <div class="tarjetaModo" id="pistaNormal">
+                        <div style="font-size:2.5rem;">🟡</div>
+                        <h3 style="color:#ffff00;">NORMAL</h3>
+                        <p>Curvas variadas<br>con algún desnivel.</p>
+                        <button class="btnMenu btnPequeno" style="color:#ffff00; border-color:#ffff00;">JUGAR</button>
+                    </div>
+
+                    <div class="tarjetaModo" id="pistaDificil">
+                        <div style="font-size:2.5rem;">🔴</div>
+                        <h3 style="color:#ff4444;">DIFÍCIL</h3>
+                        <p>Curvas cerradas,<br>saltos y obstáculos.</p>
+                        <button class="btnMenu btnPequeno" style="color:#ff4444; border-color:#ff4444;">JUGAR</button>
+                    </div>
+
+                </div>
+                <button class="btnMenu" id="btnVolverPistas" style="margin-top:30px; color:#888; border-color:#888; font-size:1rem;">← VOLVER</button>
+            </div>
+
         </div>
+
         <div id="minimap-border">
             <div id="minimap"></div>
         </div>
