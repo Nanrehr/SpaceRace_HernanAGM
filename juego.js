@@ -1154,6 +1154,11 @@ function update() {
                 if (Math.abs(velocidadReal) > 0.5) moviendose = true;
             }
 
+            /*
+            if (moviendose) {
+                if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * delta; 
+                if (teclas.ArrowRight) coche.rotation.y -= velocidadGiro * delta; 
+            }*/
            // Girar siempre que se pulse, pero más lento si no se mueve
             const factorGiro = Math.min(1, Math.abs(velocidadReal) / velocidadBase);
             if (teclas.ArrowLeft)  coche.rotation.y += velocidadGiro * factorGiro * delta;
