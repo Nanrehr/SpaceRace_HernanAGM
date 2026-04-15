@@ -371,22 +371,20 @@ function init() {
     });
 
     // Selección de colores
-    document.querySelectorAll('.colorOpcion').forEach(el => {
-            el.addEventListener('click', () => {
-                document.querySelectorAll('.colorOpcion').forEach(e => e.classList.remove('seleccionado'));
-                el.classList.add('seleccionado');
-                colorCoche = parseInt(el.dataset.color, 16);
-                if (coche) {
-                    coche.traverse(hijo => {
-                        if (hijo.isMesh) {
-                            const hex = hijo.material.color.getHex();
-                            const esCarroceria = ![0x334333, 0x222222, 0x333333, 0xffff00, 0xff0000, 0xffffff].includes(hex);
-                            if (esCarroceria) hijo.material.color.setHex(colorCoche);
-                        }
-                    });
-                }
-            });
+document.querySelectorAll('.colorOpcion').forEach(el => {
+        el.addEventListener('click', () => {
+            document.querySelectorAll('.colorOpcion').forEach(e => e.classList.remove('seleccionado'));
+            el.classList.add('seleccionado');
+            colorCoche = parseInt(el.dataset.color.replace('0x', ''), 16);
+            if (coche) {
+                coche.traverse(hijo => {
+                    if (hijo.isMesh && hijo.userData.esCarroceria) {
+                        hijo.material.color.setHex(colorCoche);
+                    }
+                });
+            }
         });
+    });
 
 
     reloj.start();
@@ -628,6 +626,7 @@ function crearCoche() {
 
     const chasis = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), matChasis);
     chasis.castShadow = true; 
+    chasis.userData.esCarroceria = true;  // ← AÑADE
     coche.add(chasis);
 
     const cabina = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), matCabina);
@@ -684,6 +683,7 @@ function crearCoche() {
 
     const aleron = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.4), matChasis);
     aleron.position.set(0, 0.4, -0.9);
+    aleron.userData.esCarroceria = true;  // ← AÑADE
     coche.add(aleron);
     const soporte = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.1), matCabina);
     soporte.position.set(0, 0.25, -0.8);
