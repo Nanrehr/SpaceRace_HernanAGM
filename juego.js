@@ -18,7 +18,8 @@ const teclas = {
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
-    ArrowRight: false
+    ArrowRight: false,
+    KeyC: false
 };
 
 let camera;
@@ -89,6 +90,14 @@ let velocidadReal = 0;        // Velocidad actual con inercia
 const aceleracion = 40;       // Qué tan rápido gana velocidad
 const frenado = 60;           // Qué tan rápido frena
 const rozamiento = 25;        // Desaceleración natural al soltar
+
+// --- CONOS ---
+const conos = [];
+const numConosPorDificultad = { facil: 6, normal: 14, dificil: 26 };
+
+// --- MUROS LATERALES ---
+const murosLaterales = [];
+let murosActivos = false;
 
 const PISTAS = {
     facil: {
@@ -279,10 +288,28 @@ function init() {
         vallas.forEach(v => scene.remove(v));
         vallas.length = 0;
         if (meta) { scene.remove(meta); meta = null; }
+        
+        // Limpiar conos y muros anteriores
+        conos.forEach(c => scene.remove(c));
+        conos.length = 0;
+        murosLaterales.forEach(m => scene.remove(m));
+        murosLaterales.length = 0;
+        murosActivos = false;
+
 
         crearPista();
         crearInteractuables();
+        crearConos();
+        crearMurosLaterales();
+
+
         document.getElementById('hudFantasmaPanel').style.display = 'none';
+        document.getElementById('hudModos').style.display = 'flex';
+        // Resetear texto de botones
+        const bm = document.getElementById('btnToggleMuros');
+        if (bm) { bm.innerText = '🧱 MUROS: OFF'; bm.style.color = '#ff8800'; bm.style.borderColor = '#ff8800'; }
+        const bs = document.getElementById('btnToggleSinCaida');
+        if (bs) { bs.innerText = '🛡️ SIN CAÍDA: OFF'; bs.style.color = '#ffff00'; bs.style.borderColor = '#ffff00'; }
 
         const puntoInicio = curvaPista.getPointAt(0);
         const tangenteInicio = curvaPista.getTangentAt(0);
@@ -327,6 +354,7 @@ function init() {
         document.getElementById('hud').style.display = 'block';
         document.getElementById('hudControlesJuego').style.display = 'block'; // ← añadir
         document.getElementById('hudContrareloj').style.display = modo === 'contrareloj' ? 'block' : 'none';
+        document.getElementById('btnToggleMuros').addEventListener('click', toggleMuros);
 
         juegoIniciado = true;
         reloj.start();
@@ -915,6 +943,166 @@ function sonidoBoost() {
     osc.start(); osc.stop(audioCtx.currentTime + 0.3);
 }
 
+function crearConos() {
+    conos.forEach(c => scene.remove(c));
+    conos.length = 0;
+
+    const num = numConosPorDificultad[pistaActual] || 10;
+    const matCono  = new THREE.MeshPhongMaterial({ color: 0xff6600, emissive: 0x331100 });
+    const matBase  = new THREE.MeshPhongMaterial({ color: 0x222222 });
+    const matBanda = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const geoCuerpo = new THREE.ConeGeometry(0.35, 1.0, 8);
+    const geoBase   = new THREE.CylinderGeometry(0.45, 0.45, 0.12, 8);
+    const geoBanda  = new THREE.CylinderGeometry(0.37, 0.37, 0.13, 8);
+
+    // t a evitar: meta (0), checkpoints (0.25, 0.5, 0.75) + margen
+    const tEvitar = [0, 0.25, 0.5, 0.75];
+
+    for (let i = 0; i < num; i++) {
+        let t, valido = false, intentos = 0;
+        while (!valido && intentos < 60) {
+            t = 0.03 + Math.random() * 0.94;
+            valido = tEvitar.every(te => Math.abs(t - te) > 0.05);
+            if (valido) {
+                const ptTest = curvaPista.getPointAt(t);
+                // No superponer con otros conos
+                valido = conos.every(c => {
+                    const d = Math.hypot(ptTest.x - c.position.x, ptTest.z - c.position.z);
+                    return d > 4.0;
+                });
+            }
+            intentos++;
+        }
+        if (!valido) continue;
+
+        const punto   = curvaPista.getPointAt(t);
+        const tangente = curvaPista.getTangentAt(t);
+        const perp = new THREE.Vector3().crossVectors(tangente, new THREE.Vector3(0,1,0)).normalize();
+        const offset = (Math.random() - 0.5) * 7.5; // dentro del ancho de la pista
+
+        const grupo = new THREE.Group();
+
+        const meshBase = new THREE.Mesh(geoBase, matBase);
+        meshBase.position.y = 0.06;
+        meshBase.castShadow = true;
+        grupo.add(meshBase);
+
+        const meshBanda = new THREE.Mesh(geoBanda, matBanda);
+        meshBanda.position.y = 0.48;
+        grupo.add(meshBanda);
+
+        const meshCuerpo = new THREE.Mesh(geoCuerpo, matCono);
+        meshCuerpo.position.y = 0.62;
+        meshCuerpo.castShadow = true;
+        grupo.add(meshCuerpo);
+
+        grupo.position.set(
+            punto.x + perp.x * offset,
+            punto.y,
+            punto.z + perp.z * offset
+        );
+        grupo.userData.inclinacion = 0; // para animación de golpe
+
+        scene.add(grupo);
+        conos.push(grupo);
+    }
+}
+
+/*
+function crearMurosLaterales() {
+    murosLaterales.forEach(m => scene.remove(m));
+    murosLaterales.length = 0;
+
+    const numSeg   = 120;
+    const semiAncho = 6.4;   // semiancho de pista (12/2 + margen)
+    const altMuro  = 2.5;
+    const longSeg  = curvaPista.getLength() / numSeg * 1.08;
+
+    const matMuro = new THREE.MeshPhongMaterial({
+        color: 0x0066ff, emissive: 0x002255,
+        transparent: true, opacity: 0.72
+    });
+
+    for (let i = 0; i < numSeg; i++) {
+        const t = i / numSeg;
+        const punto   = curvaPista.getPointAt(t);
+        const tangente = curvaPista.getTangentAt(t).clone().setY(0).normalize();
+        const perp = new THREE.Vector3().crossVectors(tangente, new THREE.Vector3(0,1,0)).normalize();
+
+        const geoMuro = new THREE.BoxGeometry(longSeg, altMuro, 0.5);
+
+        for (const lado of [1, -1]) {
+            const muro = new THREE.Mesh(geoMuro, matMuro.clone());
+            muro.position.set(
+                punto.x + perp.x * semiAncho * lado,
+                punto.y + altMuro / 2,
+                punto.z + perp.z * semiAncho * lado
+            );
+            if (tangente.length() > 0.001) {
+                muro.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tangente);
+            }
+            muro.visible = murosActivos;
+            muro.castShadow = true;
+            scene.add(muro);
+            murosLaterales.push(muro);
+        }
+    }
+}*/
+
+function crearMurosLaterales() {
+    murosLaterales.forEach(m => scene.remove(m));
+    murosLaterales.length = 0;
+
+    const semiAncho = 6.4;
+    const altMuro = 2.0;
+    const numPuntos = 300;
+    const matMuro = new THREE.MeshPhongMaterial({
+        color: 0x0066ff,
+        emissive: 0x002255,
+        transparent: true,
+        opacity: 0.72
+    });
+
+    for (const lado of [1, -1]) {
+        // Construir los puntos del tubo lateral desplazando perpendicularmente la curva
+        const puntosLado = [];
+        for (let i = 0; i <= numPuntos; i++) {
+            const t = i / numPuntos;
+            const punto = curvaPista.getPointAt(t);
+            const tangente = curvaPista.getTangentAt(t).clone().setY(0).normalize();
+            const perp = new THREE.Vector3().crossVectors(tangente, new THREE.Vector3(0, 1, 0)).normalize();
+            puntosLado.push(new THREE.Vector3(
+                punto.x + perp.x * semiAncho * lado,
+                punto.y + altMuro / 2,
+                punto.z + perp.z * semiAncho * lado
+            ));
+        }
+
+        const curvaMuro = new THREE.CatmullRomCurve3(puntosLado, true);
+        const geo = new THREE.TubeGeometry(curvaMuro, numPuntos, 0.25, 6, true);
+        const muro = new THREE.Mesh(geo, matMuro.clone());
+        muro.visible = murosActivos;
+        scene.add(muro);
+        murosLaterales.push(muro);
+    }
+}
+
+function toggleMuros() {
+    murosActivos = !murosActivos;
+    console.log('Muros laterales ' + (murosActivos ? 'activados' : 'desactivados'));
+    murosLaterales.forEach(m => m.visible = murosActivos);
+    const btn = document.getElementById('btnToggleMuros');
+    if (btn) {
+        btn.innerText   = `🧱 MUROS: ${murosActivos ? 'ON' : 'OFF'}`;
+        btn.style.color        = murosActivos ? '#00ff00' : '#ff8800';
+        btn.style.borderColor  = murosActivos ? '#00ff00' : '#ff8800';
+        btn.style.boxShadow    = murosActivos
+            ? '0 0 12px #00ff0055 inset'
+            : '0 0 12px #ff880033 inset';
+    }
+}
+
+
 function sonidoCaidaResbalon() {
     if (!audioCtx) return;
     const osc = audioCtx.createOscillator();
@@ -1028,6 +1216,7 @@ function mostrarPantallaFin(tiempoTotal, caidas, vueltas, victoria) {
         document.getElementById('hud').style.display = 'none';
         document.getElementById('hudControlesJuego').style.display = 'none';
         document.getElementById('hudContrareloj').style.display = 'none';
+        document.getElementById('hudModos').style.display = 'none';
     });
 }
 
@@ -1175,12 +1364,45 @@ function update() {
                 origenV.y += 0.5;
                 const dirV = new THREE.Vector3(0, 0, 1).applyQuaternion(coche.quaternion);
                 rayoValla.set(origenV, dirV);
-                const cols = rayoValla.intersectObjects(vallas);
+                
+                const objetosChoque = murosActivos ? [...vallas, ...murosLaterales] : vallas;
+                const cols = rayoValla.intersectObjects(objetosChoque);
+
                 if (cols.length > 0 && cols[0].distance < 1.5) {
                     puedeAvanzar = false;
                     velocidadReal *= -0.3; // Rebote suave
                 }
             }
+
+            // Colisión con conos — siempre, no solo hacia delante
+            if (!estadoCaida) {
+                conos.forEach(cono => {
+                    const dx = coche.position.x - cono.position.x;
+                    const dz = coche.position.z - cono.position.z;
+                    const dist2D = Math.sqrt(dx * dx + dz * dz);
+                    const RADIO = 1.1;
+                    if (dist2D < RADIO && dist2D > 0.001) {
+                        // Empujar coche hacia afuera
+                        const nx = dx / dist2D, nz = dz / dist2D;
+                        coche.position.x += nx * (RADIO - dist2D + 0.05);
+                        coche.position.z += nz * (RADIO - dist2D + 0.05);
+                        velocidadReal *= -0.3;
+                        // Animar cono: inclinarlo en dirección del golpe
+                        cono.userData.inclinacion = 0.6; // rads
+                        cono.rotation.set(nz * 0.5, 0, -nx * 0.5);
+                        sonidoCaidaResbalon(); // reutilizamos el sonido (puedes crear uno propio)
+                    }
+                    // Recuperar posición del cono gradualmente
+                    if (cono.userData.inclinacion > 0) {
+                        cono.userData.inclinacion -= delta * 1.5;
+                        if (cono.userData.inclinacion <= 0) {
+                            cono.userData.inclinacion = 0;
+                            cono.rotation.set(0, 0, 0);
+                        }
+                    }
+                });
+            }
+
 
             if (puedeAvanzar || velocidadReal < 0) {
                 const distanciaMov = velocidadReal * delta;
@@ -1406,6 +1628,12 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('keyup', (event) => {
     if (teclas.hasOwnProperty(event.code)) teclas[event.code] = false;
+});
+
+window.addEventListener('keydown', (event) => {
+    if (event.code === 'KeyC' && !event.repeat) {
+        toggleMuros();
+    }
 });
 
 init();
