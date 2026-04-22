@@ -420,15 +420,15 @@ function crearTexturaAjedrez() {
     }
     return new THREE.CanvasTexture(canvas);
 }
-
 function crearLuces() {
     const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.3); 
     scene.add(luzAmbiental);
     const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
     luzDireccional.position.set(20, 50, -20);
     luzDireccional.castShadow = true;
-    luzDireccional.shadow.mapSize.width = 2048;
-    luzDireccional.shadow.mapSize.height = 2048;
+
+    luzDireccional.shadow.mapSize.width = 640000;
+    luzDireccional.shadow.mapSize.height = 640000;
     luzDireccional.shadow.camera.near = 0.5;
     luzDireccional.shadow.camera.far = 300;
     luzDireccional.shadow.camera.left = -300;
@@ -438,6 +438,31 @@ function crearLuces() {
     scene.add(luzDireccional);
 }
 
+
+/*
+function crearLuces() {
+    const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(luzAmbiental);
+
+    luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
+    luzDireccional.position.set(0, 20, 0); // posición relativa, se actualiza cada frame
+    luzDireccional.castShadow = true;
+
+    // Área de sombra PEQUEÑA centrada en el coche → máxima precisión
+    luzDireccional.shadow.mapSize.width  = 2048;
+    luzDireccional.shadow.mapSize.height = 2048;
+    luzDireccional.shadow.camera.near   = 0.5;
+    luzDireccional.shadow.camera.far    = 60;
+    luzDireccional.shadow.camera.left   = -20;
+    luzDireccional.shadow.camera.right  =  20;
+    luzDireccional.shadow.camera.top    =  20;
+    luzDireccional.shadow.camera.bottom = -20;
+    luzDireccional.shadow.bias          = -0.001; // elimina el "shadow acne"
+
+    scene.add(luzDireccional);
+    scene.add(luzDireccional.target); // el target también hay que añadirlo a la escena
+}
+    */
 function crearFondoEspacial() {
     const geometriaFondo = new THREE.SphereGeometry(500, 64, 64);
     const materialFondo = new THREE.MeshBasicMaterial({ color: 0x050510, side: THREE.BackSide });
@@ -660,6 +685,7 @@ function crearCoche() {
     [-0.3, 0.3].forEach(x => {
         const escape = new THREE.Mesh(geoEscape, matEscape);
         escape.position.set(x, -0.1, -1.0);
+        escape.castShadow = true;
         coche.add(escape);
     });
 
@@ -672,10 +698,17 @@ function crearCoche() {
     ruedas = []; 
     [[0.6, -0.2, 0.8], [-0.6, -0.2, 0.8], [0.6, -0.2, -0.8], [-0.6, -0.2, -0.8]].forEach(pos => {
         const rueda = new THREE.Group(); 
-        rueda.add(new THREE.Mesh(geoRueda, matRueda));
+        
+        const meshRueda = new THREE.Mesh(geoRueda, matRueda);
+        meshRueda.castShadow = true;
+        meshRueda.receiveShadow = true;
+        rueda.add(meshRueda);
+        
         const llanta = new THREE.Mesh(geoLlanta, matLlanta);
-        llanta.position.x = pos[0] > 0 ? 0.11 : -0.11; 
+        llanta.position.x = pos[0] > 0 ? 0.11 : -0.11;
+        llanta.castShadow = true;
         rueda.add(llanta);
+        
         rueda.position.set(pos[0], pos[1], pos[2]);
         coche.add(rueda);
         ruedas.push(rueda); 
@@ -683,10 +716,12 @@ function crearCoche() {
 
     const aleron = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.4), matChasis);
     aleron.position.set(0, 0.4, -0.9);
-    aleron.userData.esCarroceria = true;  // ← AÑADE
+    aleron.userData.esCarroceria = true;
+    aleron.castShadow = true;
     coche.add(aleron);
     const soporte = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.1), matCabina);
     soporte.position.set(0, 0.25, -0.8);
+    soporte.castShadow = true;
     coche.add(soporte);
 
     coche.position.copy(puntoReaparicion); 
@@ -1288,6 +1323,7 @@ function update() {
                     offset.y += (Math.random()-0.5)*0.15;
                     offset.applyQuaternion(coche.quaternion);
                     particula.position.copy(coche.position).add(offset);
+                    particula.castShadow = true;
                     scene.add(particula);
                     particulas.push({ mesh: particula, life: 0.8 });
                 }
