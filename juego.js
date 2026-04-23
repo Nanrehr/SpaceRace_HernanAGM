@@ -78,6 +78,7 @@ let frameFantasma = 0;
 let mejorTiempoFantasma = Infinity;
 let tiempoVueltaActual = 0;
 let tiempoFrameAcum = 0;
+let luzDireccional;
 
 // --- AUDIO ---
 let audioCtx = null;
@@ -193,6 +194,7 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(new THREE.Color(0x000000)); 
     renderer.shadowMap.enabled = true; 
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('container').appendChild(renderer.domElement);
 
     const aspectRatio = window.innerWidth / window.innerHeight;
@@ -307,9 +309,7 @@ function init() {
         document.getElementById('hudModos').style.display = 'flex';
         // Resetear texto de botones
         const bm = document.getElementById('btnToggleMuros');
-        if (bm) { bm.innerText = '🧱 MUROS: OFF'; bm.style.color = '#ff8800'; bm.style.borderColor = '#ff8800'; }
-        const bs = document.getElementById('btnToggleSinCaida');
-        if (bs) { bs.innerText = '🛡️ SIN CAÍDA: OFF'; bs.style.color = '#ffff00'; bs.style.borderColor = '#ffff00'; }
+        if (bm) { bm.innerText = '🧱 Estado MUROS: OFF'; bm.style.color = '#ff8800'; bm.style.borderColor = '#ff8800'; }
 
         const puntoInicio = curvaPista.getPointAt(0);
         const tangenteInicio = curvaPista.getTangentAt(0);
@@ -451,21 +451,28 @@ function crearTexturaAjedrez() {
 function crearLuces() {
     const luzAmbiental = new THREE.AmbientLight(0xffffff, 0.3); 
     scene.add(luzAmbiental);
-    const luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
+
+    luzDireccional = new THREE.DirectionalLight(0xffffff, 0.6);
     luzDireccional.position.set(20, 50, -20);
     luzDireccional.castShadow = true;
 
-    luzDireccional.shadow.mapSize.width = 640000;
-    luzDireccional.shadow.mapSize.height = 640000;
+    luzDireccional.shadow.mapSize.width = 2048;
+    luzDireccional.shadow.mapSize.height = 2048;
     luzDireccional.shadow.camera.near = 0.5;
-    luzDireccional.shadow.camera.far = 300;
-    luzDireccional.shadow.camera.left = -300;
-    luzDireccional.shadow.camera.right = 300;
-    luzDireccional.shadow.camera.top = 300;
-    luzDireccional.shadow.camera.bottom = -300;
-    scene.add(luzDireccional);
-}
+    luzDireccional.shadow.camera.far = 60;
 
+    const size = 20;
+    luzDireccional.shadow.camera.left   = -size;
+    luzDireccional.shadow.camera.right  =  size;
+    luzDireccional.shadow.camera.top    =  size;
+    luzDireccional.shadow.camera.bottom = -size;
+
+    luzDireccional.shadow.bias       = -0.0001;
+    luzDireccional.shadow.normalBias =  0.02;
+
+    scene.add(luzDireccional);
+    scene.add(luzDireccional.target);
+}
 
 /*
 function crearLuces() {
@@ -1093,7 +1100,7 @@ function toggleMuros() {
     murosLaterales.forEach(m => m.visible = murosActivos);
     const btn = document.getElementById('btnToggleMuros');
     if (btn) {
-        btn.innerText   = `🧱 MUROS: ${murosActivos ? 'ON' : 'OFF'}`;
+        btn.innerText   = `🧱 Estado MUROS: ${murosActivos ? 'ON' : 'OFF'}`;
         btn.style.color        = murosActivos ? '#00ff00' : '#ff8800';
         btn.style.borderColor  = murosActivos ? '#00ff00' : '#ff8800';
         btn.style.boxShadow    = murosActivos
@@ -1609,6 +1616,16 @@ function render() {
     renderer.setScissorTest(false);
     renderer.setClearColor(new THREE.Color(0x050510));
     renderer.clear();
+    if (coche && luzDireccional) {
+        luzDireccional.target.position.copy(coche.position);
+        luzDireccional.position.set(
+            coche.position.x + 20,
+            coche.position.y + 50,
+            coche.position.z - 20
+        );
+        luzDireccional.target.updateMatrixWorld();
+    }
+
     renderer.render(scene, camera);
     if (cameraTop && rendererMinimap) {
         rendererMinimap.clear();
